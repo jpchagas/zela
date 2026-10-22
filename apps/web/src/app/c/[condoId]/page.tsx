@@ -9,6 +9,7 @@ import { useApiQuery } from "@/lib/api";
 import { AUDIT_ACTION_LABEL, formatDateTime } from "@/lib/labels";
 import { can } from "@/lib/permissions";
 import type { AuditEvent, CondominiumSummary, Page } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 export default function OverviewPage() {
   const { condoId, condominium, role, basePath } = useCondo();
@@ -49,15 +50,32 @@ export default function OverviewPage() {
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Chamados e visitantes</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground text-sm">
-            Chamados abertos, pedidos que exigem atenção e autorizações de visitantes aparecem aqui
-            quando os módulos de manutenção e visitantes forem ativados.
-          </CardContent>
-        </Card>
+        {can(role, "conversations.read") && (
+          <Link href={`${basePath}/conversations?status=escalated`}>
+            <Card
+              className={cn(
+                "h-full transition-colors",
+                summary?.conversations_escalated
+                  ? "border-amber-300 bg-amber-50 hover:border-amber-400"
+                  : "hover:border-brand/60",
+              )}
+            >
+              <CardHeader>
+                <CardTitle className="text-base">Conversas aguardando a equipe</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold tabular-nums">
+                  {summary?.conversations_escalated ?? "—"}
+                </p>
+                <p className="text-muted-foreground mt-1 text-sm">
+                  {summary?.conversations_escalated
+                    ? "O assistente encaminhou estes pedidos. Responda pelo painel."
+                    : "Nenhum pedido encaminhado no momento."}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
+        )}
 
         {canAudit && (
           <Card>

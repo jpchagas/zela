@@ -29,7 +29,16 @@ def _resident(client, condo_id, email, **extra):
 )
 @pytest.mark.parametrize(
     "path",
-    ["", "/summary", "/buildings", "/units", "/residents", "/staff", "/audit-events"],
+    [
+        "",
+        "/summary",
+        "/buildings",
+        "/units",
+        "/residents",
+        "/staff",
+        "/conversations",
+        "/audit-events",
+    ],
 )
 def test_foreign_condominium_reads_are_404(client, world, email, condo_attr, path):
     condo = getattr(world, condo_attr)

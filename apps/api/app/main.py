@@ -19,6 +19,10 @@ def create_app() -> FastAPI:
     install_error_handlers(app)
     app.include_router(api_router)
     app.include_router(webhooks.router)
+    if settings.env == "development":
+        from app.api import dev
+
+        app.include_router(dev.router)
 
     @app.get("/healthz", tags=["ops"])
     def healthz() -> dict[str, str]:

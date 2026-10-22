@@ -1,4 +1,11 @@
-import type { ResidentStatus, Role, UnitRelationship } from "@/lib/types";
+import type {
+  ConversationStatus,
+  DeliveryStatus,
+  MessageKind,
+  ResidentStatus,
+  Role,
+  UnitRelationship,
+} from "@/lib/types";
 
 export const ROLE_LABEL: Record<Role, string> = {
   org_owner: "Proprietário da conta",
@@ -38,6 +45,35 @@ export const AUDIT_ACTION_LABEL: Record<string, string> = {
   "staff.invited": "Membro da equipe convidado",
   "staff.revoked": "Acesso da equipe removido",
   "user.identity_linked": "Primeiro acesso",
+  "resident.enrollment_code_issued": "Código de ativação gerado",
+  "resident.enrolled": "Morador ativou o WhatsApp",
+  "conversation.escalated": "Conversa encaminhada para a equipe",
+  "conversation.staff_replied": "Equipe respondeu no WhatsApp",
+  "conversation.returned_to_assistant": "Conversa devolvida ao assistente",
+  "condominium.whatsapp_configured": "WhatsApp configurado",
+};
+
+export const CONVERSATION_STATUS_LABEL: Record<ConversationStatus, string> = {
+  active: "Com o assistente",
+  escalated: "Aguardando equipe",
+  closed: "Encerrada",
+};
+
+export const MESSAGE_KIND_LABEL: Record<MessageKind, string> = {
+  resident: "Morador",
+  ai_reply: "Assistente IA",
+  system_reply: "Resposta automática",
+  staff_reply: "Equipe",
+  notification: "Aviso automático",
+  announcement: "Comunicado",
+};
+
+export const DELIVERY_LABEL: Record<DeliveryStatus, string> = {
+  pending: "enviando",
+  sent: "enviada",
+  delivered: "entregue",
+  read: "lida",
+  failed: "falhou",
 };
 
 export function formatPhone(e164: string): string {

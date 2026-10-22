@@ -56,6 +56,7 @@ export function useApi() {
     get: <T>(path: string) => call<T>(path),
     post: <T>(path: string, body?: unknown) => call<T>(path, { method: "POST", body: body ?? {} }),
     patch: <T>(path: string, body: unknown) => call<T>(path, { method: "PATCH", body }),
+    put: <T>(path: string, body: unknown) => call<T>(path, { method: "PUT", body }),
     del: (path: string) => call<void>(path, { method: "DELETE" }),
   };
 }

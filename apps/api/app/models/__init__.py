@@ -10,7 +10,7 @@ from app.models.operations import (
     TicketEvent,
     VisitorAuthorization,
 )
-from app.models.residents import Resident, ResidentPhone, UnitMembership
+from app.models.residents import EnrollmentCode, Resident, ResidentPhone, UnitMembership
 from app.models.tenancy import Building, Condominium, Organization, Unit
 
 __all__ = [
@@ -21,6 +21,7 @@ __all__ = [
     "CondominiumCounter",
     "Conversation",
     "Document",
+    "EnrollmentCode",
     "DocumentChunk",
     "MaintenanceTicket",
     "Message",

@@ -33,6 +33,9 @@ def main() -> None:
             name="Residencial Jacarandá",
             city="São Paulo",
             state="SP",
+            contact_email="administracao@example.com",
+            # Matches nothing at Meta; the dev simulator (/dev/whatsapp/inbound) uses it.
+            whatsapp_phone_number_id="1000000000",
         )
         db.add(condo)
         db.flush()

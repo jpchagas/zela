@@ -34,6 +34,7 @@ export interface Condominium {
   timezone: string;
   contact_email: string | null;
   contact_phone: string | null;
+  whatsapp_phone_number_id: string | null;
   created_at: string;
 }
 
@@ -42,6 +43,7 @@ export interface CondominiumSummary {
   units: number;
   residents_by_status: Record<ResidentStatus, number>;
   staff: number;
+  conversations_escalated: number;
 }
 
 export interface Building {
@@ -107,4 +109,49 @@ export interface AuditEvent {
   entity_id: string | null;
   data: Record<string, unknown>;
   created_at: string;
+}
+
+export interface EnrollmentCode {
+  code: string;
+  expires_at: string;
+  phone_e164: string;
+}
+
+export type ConversationStatus = "active" | "escalated" | "closed";
+export type MessageKind =
+  | "resident"
+  | "ai_reply"
+  | "system_reply"
+  | "staff_reply"
+  | "notification"
+  | "announcement";
+export type DeliveryStatus = "pending" | "sent" | "delivered" | "read" | "failed";
+
+export interface ConversationSummary {
+  id: string;
+  contact_e164: string;
+  resident_id: string | null;
+  resident_name: string | null;
+  status: ConversationStatus;
+  escalation_reason: string | null;
+  escalated_at: string | null;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+}
+
+export interface ConversationMessage {
+  id: string;
+  direction: "inbound" | "outbound";
+  kind: MessageKind;
+  body: string | null;
+  delivery_status: DeliveryStatus | null;
+  delivery_error: string | null;
+  sent_by_user_id: string | null;
+  created_at: string;
+}
+
+export interface ConversationDetail extends ConversationSummary {
+  can_reply: boolean;
+  reply_window_ends_at: string | null;
+  messages: ConversationMessage[];
 }

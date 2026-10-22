@@ -2,7 +2,7 @@ API := apps/api
 WEB := apps/web
 PY := $(API)/.venv/bin
 
-.PHONY: db db-down api-install api-dev migrate seed test lint web-install web-dev web-check check
+.PHONY: db db-down api-install api-dev migrate seed test eval sweep lint web-install web-dev web-check check
 
 db:            ## Start local Postgres (host port 5433)
 	docker compose up -d db
@@ -25,6 +25,12 @@ seed:          ## Seed demo data: make seed EMAIL=you@example.com
 
 test:          ## API tests (needs `make db`)
 	cd $(API) && .venv/bin/pytest
+
+eval:          ## AI evals against the real model (costs money; needs ANTHROPIC_API_KEY)
+	cd $(API) && ZELA_RUN_EVALS=1 .venv/bin/pytest tests/evals -v
+
+sweep:         ## Re-queue unfinished WhatsApp webhook events
+	cd $(API) && .venv/bin/python -m app.workers.sweep
 
 lint:
 	cd $(API) && .venv/bin/ruff check . && .venv/bin/ruff format --check .

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -38,7 +38,17 @@ class WebhookEvent(IdMixin, Base):
 
 class Conversation(IdMixin, TimestampMixin, Base):
     __tablename__ = "conversations"
-    __table_args__ = (Index("ix_conversations_condo_last", "condominium_id", "last_message_at"),)
+    __table_args__ = (
+        Index("ix_conversations_condo_last", "condominium_id", "last_message_at"),
+        # At most one open thread per contact, so concurrent messages land in the same one.
+        Index(
+            "uq_conversations_open_contact",
+            "condominium_id",
+            "contact_e164",
+            unique=True,
+            postgresql_where=text("status <> 'closed'"),
+        ),
+    )
 
     condominium_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("condominiums.id", ondelete="CASCADE")
@@ -53,6 +63,10 @@ class Conversation(IdMixin, TimestampMixin, Base):
         db_enum(ConversationStatus), default=ConversationStatus.ACTIVE
     )
     escalation_reason: Mapped[str | None] = mapped_column(Text)
+    escalated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Start of WhatsApp's 24h customer-service window: free-form replies are allowed only
+    # within 24h of the contact's last inbound message.
+    last_inbound_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_message_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
@@ -73,9 +87,15 @@ class Message(IdMixin, Base):
         ForeignKey("users.id", ondelete="SET NULL")
     )
     provider_message_id: Mapped[str | None] = mapped_column(String(200), unique=True)
+    # Outbound only: e.g. "reply:<inbound message id>", so a retried job never sends twice.
+    idempotency_key: Mapped[str | None] = mapped_column(String(200), unique=True)
+    delivery_error: Mapped[str | None] = mapped_column(Text)
     delivery_status: Mapped[DeliveryStatus | None] = mapped_column(db_enum(DeliveryStatus))
     redacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # clock_timestamp(), not now(): messages written in one transaction keep their order.
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.clock_timestamp()
+    )
 
 
 class NotificationEvent(IdMixin, TimestampMixin, Base):

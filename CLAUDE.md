@@ -4,12 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-Monorepo scaffolded through Milestone 0 and the Milestone 1 slice. Read `README.md` for the
+Monorepo implemented through Milestone 2 (WhatsApp and AI foundation). Read `README.md` for the
 quickstart and `docs/adr/` before changing auth, tenancy, webhooks, or agent tooling.
 
 - `apps/api`: FastAPI + SQLAlchemy 2 (sync) + Alembic. Layout: `app/api` (thin routes),
   `app/services` (business logic, commits, audit), `app/rbac` (CondoContext, permissions),
-  `app/auth` (token verification), `app/models`, `app/integrations/whatsapp`, `app/agents`.
+  `app/auth` (token verification), `app/models`, `app/integrations/whatsapp` (receiver and
+  sender), `app/workers` (inbound job, sweeper), `app/llm` (provider-neutral interface, Claude
+  adapter, scripted stand-ins), `app/agents` (concierge, tools, prompts).
 - `apps/web`: Next.js App Router, Tailwind v4, shadcn/ui. UI copy is pt-BR. Brand tokens are in
   `src/app/globals.css`.
 
@@ -23,6 +25,9 @@ Local Postgres runs on host port **5433** because 5432 is used by another projec
 - `make migrate`: apply migrations. New migration: `cd apps/api && .venv/bin/alembic revision --autogenerate -m "..."`, then review it. `alembic check` must report no drift.
 - `make seed EMAIL=you@example.com`, `make api-dev`, `make web-dev`
 - `make web-check`: tsc + eslint + next build. Run `npm run format` in `apps/web` for prettier.
+- `make eval`: AI evals in `apps/api/tests/evals`. These call the real model and cost money,
+  so ask before running them. They are skipped unless `ZELA_RUN_EVALS=1`.
+- `POST /dev/whatsapp/inbound` (development only) simulates a resident message end to end.
 
 This machine's system Python lacks `venv`; the venv was created with Poetry's bundled virtualenv
 (`~/.local/share/pypoetry/venv/bin/python -m virtualenv apps/api/.venv`).
@@ -38,6 +43,14 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
   changed field names, never personal data values.
 - Enums are stored as VARCHAR + CHECK via `db_enum()`. Pass `name=` when a table has two columns of the
   same enum.
+- Agent capabilities are `Tool` subclasses registered in `app/agents/resident_tools.py`. Tools
+  act only for `ToolContext.resident_id` and never take actor or tenant IDs from the model.
+  Arguments use Pydantic models with `extra="forbid"`. For each new tool, add a `ScriptedLLM`
+  test and an eval case.
+- The concierge system prompt (`app/agents/prompts/concierge_system.md`) must stay static
+  (it's cached). Per-run facts go in `render_context()`.
+- WhatsApp side effects go through `services/conversations.send_outbound` with an idempotency
+  key. Never call the sender directly.
 - Keep `apps/web/src/lib/types.ts` and `src/lib/permissions.ts` in sync with the API schemas and
   `app/rbac/permissions.py`.
 

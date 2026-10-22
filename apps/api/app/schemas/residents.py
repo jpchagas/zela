@@ -61,3 +61,11 @@ class ResidentOut(ORMModel):
 class ResidentDetail(ResidentOut):
     phones: list[PhoneOut]
     units: list[UnitMembershipOut]
+
+
+class EnrollmentCodeOut(BaseModel):
+    """Shown once. Only a keyed hash is stored."""
+
+    code: str
+    expires_at: datetime
+    phone_e164: str

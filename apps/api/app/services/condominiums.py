@@ -1,6 +1,7 @@
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.errors import Forbidden
 from app.models import (
     Building,
     Condominium,
@@ -14,7 +15,7 @@ from app.models.enums import ActorType, ResidentStatus
 from app.rbac.context import CondoContext, OrgContext, resolve_condo_role
 from app.rbac.permissions import Role
 from app.schemas.tenancy import CondominiumCreate, CondominiumSummary, CondominiumUpdate
-from app.services import audit
+from app.services import audit, conversations
 from app.services.common import flush_or_conflict
 
 
@@ -91,4 +92,18 @@ def summary(db: Session, ctx: CondoContext) -> CondominiumSummary:
         residents_by_status={s.value: 0 for s in ResidentStatus}
         | {s.value: n for s, n in by_status},
         staff=count(StaffMembership, StaffMembership.revoked_at.is_(None)),
+        conversations_escalated=conversations.count_escalated(db, condo_id),
     )
+
+
+def set_whatsapp(db: Session, ctx: CondoContext, phone_number_id: str | None) -> Condominium:
+    # Routes inbound messages to this tenant, so a mistake here misdelivers residents'
+    # messages: only organization admins may change it.
+    if not ctx.is_org_level:
+        raise Forbidden("Only organization admins can configure WhatsApp")
+    condo = ctx.condominium
+    condo.whatsapp_phone_number_id = phone_number_id
+    flush_or_conflict(db, "This WhatsApp number is already linked to another condominium")
+    audit.record_user_action(db, ctx, "condominium.whatsapp_configured", "condominium", condo.id)
+    db.commit()
+    return condo

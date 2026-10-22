@@ -14,6 +14,8 @@ dependencies = [
   "alembic>=1.13",
   "firebase-admin>=6.5",
   "phonenumbers>=8.13",
+  "anthropic>=1.17,<2",
+  "httpx>=0.27",
 ]
 
 [project.optional-dependencies]
@@ -30,6 +32,9 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["app*"]
 
+[tool.setuptools.package-data]
+"app.agents" = ["prompts/*.md"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
@@ -41,3 +46,6 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
 ignore = ["B008"]  # FastAPI's Depends() in defaults
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/versions/*" = ["E501"]

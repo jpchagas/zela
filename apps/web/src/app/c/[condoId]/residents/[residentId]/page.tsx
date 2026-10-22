@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { toast } from "sonner";
 
 import { useCondo } from "@/components/condo-context";
+import { EnrollmentCodeButton } from "@/components/enrollment-code-dialog";
 import { Field, FormDialog } from "@/components/form-dialog";
 import { PageHeader } from "@/components/page-header";
 import { QueryState } from "@/components/query-state";
@@ -22,7 +23,7 @@ import { useUnitOptions } from "@/lib/use-units";
 
 export default function ResidentPage() {
   const { residentId } = useParams<{ residentId: string }>();
-  const { condoId, role, basePath } = useCondo();
+  const { condoId, role, basePath, condominium } = useCondo();
   const api = useApi();
   const url = `/v1/condominiums/${condoId}/residents/${residentId}`;
   const { data: r, error, isLoading, mutate } = useApiQuery<ResidentDetail>(url);
@@ -250,22 +251,31 @@ export default function ResidentPage() {
                     </span>
                   </span>
                   {canManage && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      aria-label="Remover telefone"
-                      onClick={async () => {
-                        if (!window.confirm("Remover este telefone?")) return;
-                        try {
-                          await api.del(`${url}/phones/${p.id}`);
-                          await mutate();
-                        } catch (err) {
-                          toast.error(errorMessage(err));
-                        }
-                      }}
-                    >
-                      <Trash2 />
-                    </Button>
+                    <span className="flex items-center gap-1">
+                      {!p.verified_at && (
+                        <EnrollmentCodeButton
+                          url={`${url}/phones/${p.id}/enrollment-code`}
+                          condominiumName={condominium?.name ?? "condomínio"}
+                          onIssued={() => mutate()}
+                        />
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        aria-label="Remover telefone"
+                        onClick={async () => {
+                          if (!window.confirm("Remover este telefone?")) return;
+                          try {
+                            await api.del(`${url}/phones/${p.id}`);
+                            await mutate();
+                          } catch (err) {
+                            toast.error(errorMessage(err));
+                          }
+                        }}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </span>
                   )}
                 </li>
               ))}

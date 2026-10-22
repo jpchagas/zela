@@ -11,6 +11,7 @@ from app.schemas.tenancy import (
     CondominiumOut,
     CondominiumSummary,
     CondominiumUpdate,
+    WhatsAppConfig,
 )
 from app.services import condominiums
 
@@ -51,3 +52,12 @@ def get_summary(
     db: Session = Depends(get_db),
 ):
     return condominiums.summary(db, ctx)
+
+
+@router.put("/condominiums/{condominium_id}/whatsapp", response_model=CondominiumOut)
+def configure_whatsapp(
+    body: WhatsAppConfig,
+    ctx: CondoContext = Depends(require_permission(Permission.CONDOMINIUM_UPDATE)),
+    db: Session = Depends(get_db),
+):
+    return condominiums.set_whatsapp(db, ctx, body.whatsapp_phone_number_id)

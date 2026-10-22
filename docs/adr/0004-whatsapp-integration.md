@@ -1,6 +1,6 @@
 # 0004: Meta Cloud API direct, idempotent webhook ledger, async processing
 
-**Status:** Accepted (2026-10-22). Receiver implemented. Processing lands in Milestone 2.
+**Status:** Accepted (2026-10-22). Receiver and worker implemented in Milestone 2. Pub/Sub delivery arrives with deployment.
 
 ## Context
 PDD §16.4: direct Meta Cloud API or a BSP. Webhooks are retried and duplicated (PDD §10.3).
@@ -22,8 +22,21 @@ PDD §16.4: direct Meta Cloud API or a BSP. Webhooks are retried and duplicated 
 - Inbound messages are routed to a tenant by `condominiums.whatsapp_phone_number_id`.
   Access tokens live in Secret Manager, never in the database.
 
+- The worker (`app/workers/inbound.py`) holds a Postgres advisory lock per contact while it
+  processes a message, so one contact's messages are handled in order.
+  - The inbound message is unique by provider ID.
+  - The agent run is unique by trigger message.
+  - The reply is unique by `reply:<inbound id>`.
+  - It is committed as `pending` **before** sending, so a redelivery resends only a
+    reply that never left (at-least-once) and never one already sent.
+- Free-form messages are only sent inside WhatsApp's 24-hour customer-service window,
+  measured from `conversations.last_inbound_at`. Notifications outside it need approved
+  templates (Milestone 3).
+- Locally, `JOBS_MODE=inline` runs jobs on a thread pool in the API process.
+
 ## Consequences
-- If publishing fails after commit, the event stays `received`. A sweeper must
-  republish stale `received` rows (Milestone 2).
+- If publishing fails after commit, the event stays `received`.
+  `python -m app.workers.sweep` re-queues stale `received` and `failed` events (up to 5
+  attempts). Schedule it with Cloud Scheduler in production.
 - `webhook_events.payload` contains message content and falls under the conversation
   retention policy.

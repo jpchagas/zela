@@ -18,6 +18,8 @@ from typing import Any, ClassVar, Generic, TypeVar
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.llm.base import ToolSpec
+
 ArgsT = TypeVar("ArgsT", bound=BaseModel)
 
 
@@ -29,6 +31,10 @@ class ToolContext:
     agent_run_id: uuid.UUID
     # Derived from the triggering webhook event, so a retried run can't act twice.
     idempotency_key: str
+
+
+class ToolError(Exception):
+    """A business-rule failure the model should see and explain to the resident."""
 
 
 @dataclass
@@ -49,12 +55,12 @@ class Tool(ABC, Generic[ArgsT]):
     @abstractmethod
     def run(self, db: Session, ctx: ToolContext, args: ArgsT) -> ToolResult: ...
 
-    def json_schema(self) -> dict[str, Any]:
-        return {
-            "name": self.name,
-            "description": self.description,
-            "parameters": self.args_model.model_json_schema(),
-        }
+    def spec(self) -> ToolSpec:
+        return ToolSpec(
+            name=self.name,
+            description=self.description,
+            input_schema=self.args_model.model_json_schema(),
+        )
 
 
 class ToolRegistry:
@@ -69,5 +75,6 @@ class ToolRegistry:
     def get(self, name: str) -> Tool[Any] | None:
         return self._tools.get(name)
 
-    def schemas(self) -> list[dict[str, Any]]:
-        return [t.json_schema() for t in self._tools.values()]
+    def specs(self) -> list[ToolSpec]:
+        # Registration order is fixed, which keeps the cached prompt prefix stable.
+        return [t.spec() for t in self._tools.values()]

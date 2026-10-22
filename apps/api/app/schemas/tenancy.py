@@ -36,7 +36,12 @@ class CondominiumUpdate(BaseModel):
 class CondominiumOut(ORMModel, CondominiumBase):
     id: uuid.UUID
     organization_id: uuid.UUID
+    whatsapp_phone_number_id: str | None
     created_at: datetime
+
+
+class WhatsAppConfig(BaseModel):
+    whatsapp_phone_number_id: str | None = Field(default=None, pattern=r"^\d{6,30}$")
 
 
 class CondominiumAccess(BaseModel):
@@ -118,3 +123,4 @@ class CondominiumSummary(BaseModel):
     units: int
     residents_by_status: dict[str, int]
     staff: int
+    conversations_escalated: int

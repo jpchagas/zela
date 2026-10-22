@@ -45,8 +45,10 @@ class AgentRun(IdMixin, Base):
     conversation_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("conversations.id", ondelete="SET NULL"), index=True
     )
+    # One run per inbound message: a redelivered job finds the existing run instead of
+    # calling the model (and the tools) again.
     trigger_message_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("messages.id", ondelete="SET NULL")
+        ForeignKey("messages.id", ondelete="SET NULL"), unique=True
     )
     agent: Mapped[str] = mapped_column(String(40))
     model: Mapped[str | None] = mapped_column(String(80))
@@ -55,5 +57,7 @@ class AgentRun(IdMixin, Base):
     input_tokens: Mapped[int | None] = mapped_column()
     output_tokens: Mapped[int | None] = mapped_column()
     error: Mapped[str | None] = mapped_column(Text)
+    # The reply the run produced, so a redelivered job can send it without re-running.
+    reply_text: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -11,7 +11,8 @@ export type Permission =
   | "staff.manage"
   | "audit.read"
   | "documents.manage"
-  | "conversations.read";
+  | "conversations.read"
+  | "conversations.reply";
 
 const STAFF: Permission[] = [];
 

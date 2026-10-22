@@ -9,6 +9,7 @@ from app.rbac.context import CondoContext, require_permission
 from app.rbac.permissions import Permission
 from app.schemas.common import Page
 from app.schemas.residents import (
+    EnrollmentCodeOut,
     PhoneIn,
     PhoneOut,
     ResidentCreate,
@@ -18,7 +19,7 @@ from app.schemas.residents import (
     UnitMembershipIn,
     UnitMembershipOut,
 )
-from app.services import residents
+from app.services import enrollment, residents
 
 router = APIRouter(prefix="/condominiums/{condominium_id}/residents", tags=["residents"])
 
@@ -136,3 +137,20 @@ def end_unit_link(
     db: Session = Depends(get_db),
 ):
     return residents.end_unit_membership(db, ctx, resident_id, membership_id)
+
+
+@router.post(
+    "/{resident_id}/phones/{phone_id}/enrollment-code",
+    response_model=EnrollmentCodeOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def issue_enrollment_code(
+    resident_id: uuid.UUID,
+    phone_id: uuid.UUID,
+    ctx: CondoContext = Depends(can_manage),
+    db: Session = Depends(get_db),
+):
+    code, expires_at = enrollment.issue_code(db, ctx, resident_id, phone_id)
+    phone = residents.get_detail(db, ctx, resident_id).phones
+    e164 = next(p.phone_e164 for p in phone if p.id == phone_id)
+    return EnrollmentCodeOut(code=code, expires_at=expires_at, phone_e164=e164)

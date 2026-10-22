@@ -94,3 +94,42 @@ class UnitMembership(IdMixin, TimestampMixin, Base):
     relationship: Mapped[UnitRelationship] = mapped_column(db_enum(UnitRelationship))
     started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class EnrollmentCode(IdMixin, TimestampMixin, Base):
+    """One-time code that proves a WhatsApp sender is the resident a manager registered.
+
+    Bound to one registered phone: enrollment needs both the matching sender number and the
+    code. Only an HMAC of the code is stored (see app.services.enrollment).
+    """
+
+    __tablename__ = "enrollment_codes"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["condominium_id", "resident_id"],
+            ["residents.condominium_id", "residents.id"],
+            ondelete="CASCADE",
+        ),
+        Index(
+            "uq_enrollment_codes_pending",
+            "phone_id",
+            unique=True,
+            postgresql_where=text("used_at IS NULL AND revoked_at IS NULL"),
+        ),
+    )
+
+    condominium_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("condominiums.id", ondelete="CASCADE")
+    )
+    resident_id: Mapped[uuid.UUID] = mapped_column(index=True)
+    phone_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("resident_phones.id", ondelete="CASCADE")
+    )
+    code_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    failed_attempts: Mapped[int] = mapped_column(default=0)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )

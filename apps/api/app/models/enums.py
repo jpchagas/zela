@@ -69,6 +69,8 @@ class MessageKind(StrEnum):
 
     RESIDENT = "resident"
     AI_REPLY = "ai_reply"
+    # Fixed automated replies (enrollment prompts, unsupported media). Not model output.
+    SYSTEM_REPLY = "system_reply"
     STAFF_REPLY = "staff_reply"
     NOTIFICATION = "notification"
     ANNOUNCEMENT = "announcement"

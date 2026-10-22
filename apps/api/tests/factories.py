@@ -56,8 +56,12 @@ def build_world(db: Session) -> World:
     db.add_all([org1, org2])
     db.flush()
 
-    condo_a = Condominium(organization_id=org1.id, name="Residencial Aurora")
-    condo_b = Condominium(organization_id=org1.id, name="Edifício Bela Vista")
+    condo_a = Condominium(
+        organization_id=org1.id, name="Residencial Aurora", whatsapp_phone_number_id="1000001"
+    )
+    condo_b = Condominium(
+        organization_id=org1.id, name="Edifício Bela Vista", whatsapp_phone_number_id="1000002"
+    )
     condo_c = Condominium(organization_id=org2.id, name="Condomínio Cedro")
     db.add_all([condo_a, condo_b, condo_c])
     db.flush()

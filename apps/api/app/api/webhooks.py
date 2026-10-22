@@ -11,10 +11,9 @@ from app.db.session import get_db
 from app.integrations.whatsapp.payload import extract_events
 from app.integrations.whatsapp.signature import is_valid_signature
 from app.services import webhooks
+from app.workers.runner import INBOUND_TOPIC
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
-
-INBOUND_TOPIC = "whatsapp-inbound"
 
 
 @router.get("/whatsapp", response_class=PlainTextResponse)
