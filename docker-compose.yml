@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: zela
+      POSTGRES_PASSWORD: zela
+      POSTGRES_DB: zela
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zela"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: ./apps/api
+    env_file: ./apps/api/.env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://zela:zela@db:5432/zela
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles: ["full"]
+
+volumes:
+  pgdata:
