@@ -1,7 +1,9 @@
 import uuid
+from datetime import datetime
 
 from sqlalchemy import (
     Computed,
+    DateTime,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -40,6 +42,14 @@ class Document(IdMixin, TimestampMixin, Base):
     superseded_by_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("documents.id", ondelete="SET NULL")
     )
+    # Set on an upload that replaces another document; the old one is deactivated only
+    # once this one indexes successfully.
+    replaces_document_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL")
+    )
+    size_bytes: Mapped[int] = mapped_column(default=0)
+    chunk_count: Mapped[int] = mapped_column(default=0)
+    indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     uploaded_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL")
     )
@@ -65,5 +75,10 @@ class DocumentChunk(IdMixin, Base):
     heading: Mapped[str | None] = mapped_column(String(300))
     content: Mapped[str] = mapped_column(Text)
     search_vector: Mapped[str] = mapped_column(
-        TSVECTOR, Computed("to_tsvector('portuguese', content)", persisted=True)
+        TSVECTOR,
+        # pt_unaccent = Portuguese stemming + unaccent, so "horario" matches "horário".
+        Computed(
+            "to_tsvector('pt_unaccent'::regconfig, coalesce(heading, '') || ' ' || content)",
+            persisted=True,
+        ),
     )

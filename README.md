@@ -44,7 +44,13 @@ curl -s localhost:8000/dev/whatsapp/inbound -H 'Content-Type: application/json' 
   -d '{"condominium_id":"<id>","from_e164":"+5511987654321","text":"ABCD-2345"}'
 ```
 
+To try documents and tickets: upload a PDF in **Documentos**, ask about it, or report a
+problem ("o portão da garagem quebrou"). Tickets appear in **Chamados**. Add an on-call
+contact in **Configurações** to see emergency alerts; locally they're recorded, not sent.
+
 `LLM_PROVIDER=scripted` (the default in `.env.example`) answers with a rule-based stand-in.
+It only understands a few phrases and doesn't use documents or tickets, so use Claude to
+try those flows.
 Set `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` to use Claude. Replies show up in
 **Conversas**.
 
@@ -80,4 +86,20 @@ Milestone 2 (WhatsApp and AI foundation):
   codes, WhatsApp configuration. AI, staff and automatic messages are styled distinctly.
 - Opt-in AI eval suite (`tests/evals`)
 
-Next: Milestone 3. That covers document knowledge base, maintenance tickets, and notifications.
+Milestone 3 (knowledge and maintenance):
+
+- Document knowledge base: PDF and text upload, background indexing into section-aware
+  chunks, and accent-insensitive Portuguese search. Answers cite their source ("Regimento
+  Interno, p. 4"). Versions can be replaced, documents deactivated, and the search tested
+  in the dashboard.
+- Maintenance tickets from WhatsApp. Categories are validated against a fixed list and
+  priority is rule-checked, with the AI's suggestion kept beside the confirmed values.
+  Numbering is per condominium, and staff manage status, notes, assignment and
+  classification.
+- Emergency procedure: on-call contacts per condominium get a WhatsApp alert, and the
+  conversation is escalated (ADR 0009).
+- Notifications: plain text inside the 24h window and approved templates outside it
+  (`docs/whatsapp-templates.md`). Each one is re-checked against the stored state before
+  sending.
+
+Next: Milestone 4. That covers visitor authorization.

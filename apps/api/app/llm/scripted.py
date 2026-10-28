@@ -72,29 +72,115 @@ class RuleBasedLLM:
         return _RuleSession(history[-1].text.lower() if history else "")
 
 
+_PROBLEM = (
+    "quebr",
+    "não funciona",
+    "nao funciona",
+    "parou",
+    "vazando",
+    "vazamento",
+    "estragad",
+    "queimad",
+    "entupid",
+    "chamado",
+)
+_EMERGENCY = (
+    "gás",
+    "gas ",
+    "fogo",
+    "incêndio",
+    "incendio",
+    "fumaça",
+    "fumaca",
+    "alag",
+    "preso",
+    "ferido",
+)
+_QUESTION = (
+    "pode",
+    "posso",
+    "horário",
+    "horario",
+    "regra",
+    "permitido",
+    "proibido",
+    "qual",
+    "quando",
+    "como funciona",
+)
+
+
 @dataclass
 class _RuleSession:
     message: str
     outcomes: list[ToolOutcome] = field(default_factory=list)
+    last_tool: str | None = None
 
     def next_turn(self) -> Turn:
         if self.outcomes:
-            last = self.outcomes[-1]
-            if '"escalated": true' in last.content:
-                return say("Encaminhei sua mensagem para a equipe. Em breve alguém responde aqui.")
-            data = json.loads(last.content)
-            units = ", ".join(f"{u['unit']} ({u['relationship']})" for u in data["units"])
-            return say(
-                f"{data['first_name']}, no {data['condominium']} seu cadastro está em: "
-                f"{units or 'nenhuma unidade'}. (modo de desenvolvimento, sem IA)"
+            return say(self._answer(self.outcomes[-1]))
+        m = self.message
+        if any(w in m for w in ("atendente", "humano", "pessoa", "síndico")):
+            return self._call("escalate_to_human", reason="Morador pediu atendimento humano.")
+        if any(w in m for w in _EMERGENCY):
+            return self._call(
+                "create_maintenance_ticket",
+                title=m[:80],
+                description=m,
+                location=m[:150],
+                in_own_unit=False,
+                category="security",
+                priority="emergency",
             )
-        if any(w in self.message for w in ("atendente", "humano", "pessoa", "síndico")):
-            return call("escalate_to_human", reason="Morador pediu atendimento humano.")
-        if any(w in self.message for w in ("cadastro", "unidade", "apartamento")):
-            return call("get_resident_context")
+        if any(w in m for w in _PROBLEM):
+            return self._call(
+                "create_maintenance_ticket",
+                title=m[:80],
+                description=m,
+                location=m[:150],
+                in_own_unit=False,
+                category="other",
+                priority="normal",
+            )
+        if "meus chamados" in m or "meu chamado" in m:
+            return self._call("get_my_tickets")
+        if any(w in m for w in ("cadastro", "unidade", "apartamento")):
+            return self._call("get_resident_context")
+        if any(w in m for w in _QUESTION):
+            return self._call("search_condominium_documents", query=m)
         return say(
-            "Olá! Sou o assistente do condomínio (modo de desenvolvimento, sem IA). "
-            "Posso mostrar seu cadastro ou chamar a equipe."
+            "Olá! Sou o assistente do condomínio (modo de desenvolvimento, sem IA). Posso "
+            "responder sobre regras, abrir chamados, mostrar seu cadastro ou chamar a equipe."
+        )
+
+    def _call(self, name: str, **args) -> Turn:
+        self.last_tool = name
+        return call(name, **args)
+
+    def _answer(self, outcome: ToolOutcome) -> str:
+        if outcome.is_error:
+            return f"(modo de desenvolvimento) Não consegui: {outcome.content}"
+        data = json.loads(outcome.content)
+        suffix = " (modo de desenvolvimento, sem IA)"
+        if self.last_tool == "escalate_to_human":
+            return "Encaminhei sua mensagem para a equipe. Em breve alguém responde aqui."
+        if self.last_tool == "search_condominium_documents":
+            if not data["results"]:
+                return "Não encontrei isso nos documentos do condomínio." + suffix
+            top = data["results"][0]
+            return f"{top['excerpt'][:400]} (Fonte: {top['source']})" + suffix
+        if self.last_tool == "create_maintenance_ticket":
+            text = f"Chamado {data['reference']} registrado ({data['priority']})."
+            if data["emergency_procedure_started"]:
+                text = "Ligue para 193 se houver risco. " + text + " O plantão foi alertado."
+            return text + suffix
+        if self.last_tool == "get_my_tickets":
+            items = [f"{t['reference']} {t['title']}: {t['status']}" for t in data["tickets"]]
+            return ("; ".join(items) or "Você não tem chamados.") + suffix
+        units = ", ".join(f"{u['unit']} ({u['relationship']})" for u in data["units"])
+        return (
+            f"{data['first_name']}, no {data['condominium']} seu cadastro está em: "
+            f"{units or 'nenhuma unidade'}." + suffix
         )
 
     def add_tool_outcomes(self, outcomes: list[ToolOutcome]) -> None:

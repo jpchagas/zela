@@ -124,3 +124,6 @@ class CondominiumSummary(BaseModel):
     residents_by_status: dict[str, int]
     staff: int
     conversations_escalated: int
+    tickets_open: int
+    tickets_emergency_open: int
+    documents_failed: int

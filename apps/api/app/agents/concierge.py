@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.agents.resident_tools import build_resident_registry
 from app.agents.tools import ToolContext, ToolError, ToolRegistry
+from app.core.jobs import JobPublisher, get_job_publisher
 from app.llm.base import ChatMessage, LLMClient, LLMError, StopReason, ToolCall, ToolOutcome, Usage
 from app.models import AgentRun, Condominium, Conversation, Message, Resident
 from app.models.enums import ActorType, AgentRunStatus, ConversationStatus, MessageKind
@@ -91,6 +92,7 @@ def run_concierge(
     resident: Resident,
     trigger: Message,
     registry: ToolRegistry | None = None,
+    publisher: JobPublisher | None = None,
 ) -> AgentRun:
     """Run the agent for one inbound message and return the stored run, whose
     `reply_text` is what to send. Idempotent per trigger message."""
@@ -124,6 +126,7 @@ def run_concierge(
         conversation_id=conversation.id,
         agent_run_id=run.id,
         idempotency_key=f"msg:{trigger.id}",
+        publisher=publisher or get_job_publisher(),
     )
     usage = Usage()
     calls: list[dict] = []

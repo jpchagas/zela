@@ -11,6 +11,7 @@ consequences. Never edit an accepted ADR's decision; supersede it with a new one
 | [0003](0003-tenancy-and-isolation.md) | Organization → condominiums, isolation in queries and FKs | Accepted |
 | [0004](0004-whatsapp-integration.md) | Meta Cloud API direct, idempotent webhook ledger, async processing | Accepted |
 | [0005](0005-agents-act-through-tools.md) | Agents act only through validated backend tools | Accepted |
-| [0006](0006-document-retrieval.md) | Postgres full-text search first, vectors later | Proposed |
+| [0006](0006-document-retrieval.md) | Postgres full-text search first, vectors later | Accepted |
 | [0007](0007-llm-provider-layer.md) | Provider-neutral LLM layer, Claude as the first adapter | Accepted |
 | [0008](0008-resident-enrollment.md) | WhatsApp enrollment with a one-time code bound to the number | Accepted |
+| [0009](0009-tickets-and-emergencies.md) | Deterministic ticket classification and the emergency procedure | Accepted |

@@ -15,15 +15,12 @@ import type { Condominium } from "@/lib/types";
 
 const CAN_DO = [
   "Ativar o acesso do morador com o código gerado no painel",
-  "Informar ao morador os dados do próprio cadastro e os contatos da administração",
+  "Responder dúvidas sobre regras com base nos documentos do condomínio, citando a fonte",
+  "Abrir chamados de manutenção e informar o andamento dos chamados do próprio morador",
+  "Em emergências: orientar a ligar 193, 192 ou 190, abrir chamado de emergência e alertar o plantão",
   "Encaminhar a conversa para a equipe quando o morador pede ou quando não sabe resolver",
-  "Orientar em emergências (193, 192, 190) e encaminhar na hora",
 ];
-const COMING = [
-  "Responder sobre regras com base nos documentos do condomínio",
-  "Abrir e acompanhar chamados de manutenção",
-  "Registrar autorizações de visitantes",
-];
+const COMING = ["Registrar autorizações de visitantes", "Reservar áreas comuns"];
 
 export default function AssistantPage() {
   const { condoId, role } = useCondo();

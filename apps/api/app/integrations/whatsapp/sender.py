@@ -23,6 +23,12 @@ class WhatsAppSender(Protocol):
         """Send a text message and return the provider's message ID."""
         ...
 
+    def send_template(
+        self, phone_number_id: str, to_e164: str, name: str, language: str, params: list[str]
+    ) -> str:
+        """Send an approved template message and return the provider's message ID."""
+        ...
+
 
 class MetaCloudSender:
     def __init__(self, access_token: str, graph_version: str, timeout: float = 10.0):
@@ -33,6 +39,34 @@ class MetaCloudSender:
         )
 
     def send_text(self, phone_number_id: str, to_e164: str, body: str) -> str:
+        return self._post(
+            phone_number_id,
+            to_e164,
+            {"type": "text", "text": {"body": body, "preview_url": False}},
+        )
+
+    def send_template(
+        self, phone_number_id: str, to_e164: str, name: str, language: str, params: list[str]
+    ) -> str:
+        return self._post(
+            phone_number_id,
+            to_e164,
+            {
+                "type": "template",
+                "template": {
+                    "name": name,
+                    "language": {"code": language},
+                    "components": [
+                        {
+                            "type": "body",
+                            "parameters": [{"type": "text", "text": p} for p in params],
+                        }
+                    ],
+                },
+            },
+        )
+
+    def _post(self, phone_number_id: str, to_e164: str, message: dict) -> str:
         try:
             response = self._client.post(
                 f"/{phone_number_id}/messages",
@@ -40,8 +74,7 @@ class MetaCloudSender:
                     "messaging_product": "whatsapp",
                     "recipient_type": "individual",
                     "to": to_e164.lstrip("+"),
-                    "type": "text",
-                    "text": {"body": body, "preview_url": False},
+                    **message,
                 },
             )
         except httpx.HTTPError as exc:
@@ -57,6 +90,7 @@ class RecordingSender:
     """Records instead of sending. Used for local development and tests."""
 
     sent: list[tuple[str, str, str]] = field(default_factory=list)
+    templates: list[tuple[str, str, str, list[str]]] = field(default_factory=list)
     fail_with: str | None = None
 
     def send_text(self, phone_number_id: str, to_e164: str, body: str) -> str:
@@ -64,6 +98,15 @@ class RecordingSender:
             raise SendError(self.fail_with)
         self.sent.append((phone_number_id, to_e164, body))
         logger.info("whatsapp message recorded (not sent)", extra={"to_suffix": to_e164[-4:]})
+        return f"local.{uuid.uuid4().hex}"
+
+    def send_template(
+        self, phone_number_id: str, to_e164: str, name: str, language: str, params: list[str]
+    ) -> str:
+        if self.fail_with:
+            raise SendError(self.fail_with)
+        self.templates.append((phone_number_id, to_e164, name, params))
+        logger.info("whatsapp template recorded (not sent)", extra={"template": name})
         return f"local.{uuid.uuid4().hex}"
 
 

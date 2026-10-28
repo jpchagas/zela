@@ -5,13 +5,14 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.core.errors import Conflict
 from app.integrations.whatsapp.sender import SendError, WhatsAppSender
-from app.models import Condominium, Conversation, Message, Resident
+from app.integrations.whatsapp.templates import Template
+from app.models import Condominium, Conversation, Message, NotificationEvent, Resident
 from app.models.enums import (
     ActorType,
     ConversationStatus,
@@ -99,8 +100,13 @@ def send_outbound(
     body: str,
     idempotency_key: str,
     sent_by_user_id: uuid.UUID | None = None,
+    template: Template | None = None,
+    template_params: dict[str, str] | None = None,
 ) -> Message:
     """Persist the message, then send it, then record the outcome.
+
+    With `template`, it goes out as that approved template (needed outside the 24h window);
+    `body` should then be the template rendered with `template_params`.
 
     The row is committed before sending so nothing is sent unrecorded. A retry with the
     same key resends only a message still pending (at-least-once); one already sent or
@@ -129,9 +135,18 @@ def send_outbound(
         message.delivery_error = "WhatsApp is not configured for this condominium"
     else:
         try:
-            message.provider_message_id = sender.send_text(
-                condominium.whatsapp_phone_number_id, conversation.contact_e164, message.body
-            )
+            if template is not None:
+                message.provider_message_id = sender.send_template(
+                    condominium.whatsapp_phone_number_id,
+                    conversation.contact_e164,
+                    template.name,
+                    template.language,
+                    template.values(template_params or {}),
+                )
+            else:
+                message.provider_message_id = sender.send_text(
+                    condominium.whatsapp_phone_number_id, conversation.contact_e164, message.body
+                )
             message.delivery_status = DeliveryStatus.SENT
         except SendError as exc:
             message.delivery_status = DeliveryStatus.FAILED
@@ -158,6 +173,12 @@ def apply_delivery_status(
             message.delivery_error = (error or "failed")[:1000]
     elif current == DeliveryStatus.FAILED or _DELIVERY_RANK[new] > _DELIVERY_RANK.get(current, 0):
         message.delivery_status = new
+    # A notification's status mirrors the message it was delivered as.
+    db.execute(
+        update(NotificationEvent)
+        .where(NotificationEvent.message_id == message.id)
+        .values(status=message.delivery_status, error=message.delivery_error)
+    )
     db.commit()
     return True
 

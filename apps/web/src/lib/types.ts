@@ -44,6 +44,9 @@ export interface CondominiumSummary {
   residents_by_status: Record<ResidentStatus, number>;
   staff: number;
   conversations_escalated: number;
+  tickets_open: number;
+  tickets_emergency_open: number;
+  documents_failed: number;
 }
 
 export interface Building {
@@ -125,7 +128,7 @@ export type MessageKind =
   | "staff_reply"
   | "notification"
   | "announcement";
-export type DeliveryStatus = "pending" | "sent" | "delivered" | "read" | "failed";
+export type DeliveryStatus = "pending" | "sent" | "delivered" | "read" | "failed" | "skipped";
 
 export interface ConversationSummary {
   id: string;
@@ -154,4 +157,94 @@ export interface ConversationDetail extends ConversationSummary {
   can_reply: boolean;
   reply_window_ends_at: string | null;
   messages: ConversationMessage[];
+}
+
+export type TicketStatus =
+  | "open"
+  | "in_progress"
+  | "waiting_information"
+  | "waiting_external"
+  | "resolved"
+  | "closed";
+export type TicketPriority = "low" | "normal" | "high" | "emergency";
+export type TicketCategory =
+  | "elevators"
+  | "gates_access"
+  | "plumbing"
+  | "electrical"
+  | "cleaning"
+  | "security"
+  | "common_areas"
+  | "noise"
+  | "other";
+
+export interface TicketSummary {
+  id: string;
+  number: number;
+  title: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  category: TicketCategory;
+  ai_suggested_priority: TicketPriority | null;
+  ai_suggested_category: TicketCategory | null;
+  unit_label: string | null;
+  location: string | null;
+  reporter_name: string | null;
+  assignee_email: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface TicketEvent {
+  id: string;
+  event_type: string;
+  from_status: TicketStatus | null;
+  to_status: TicketStatus | null;
+  note: string | null;
+  is_internal: boolean;
+  actor_type: "user" | "resident" | "agent" | "system";
+  actor_id: string | null;
+  created_at: string;
+}
+
+export interface TicketDetail extends TicketSummary {
+  description: string;
+  reporter_resident_id: string | null;
+  conversation_id: string | null;
+  assignee_user_id: string | null;
+  closed_at: string | null;
+  allowed_transitions: TicketStatus[];
+  events: TicketEvent[];
+}
+
+export type DocumentStatus = "pending" | "indexing" | "ready" | "failed" | "inactive";
+
+export interface KnowledgeDocument {
+  id: string;
+  title: string;
+  mime_type: string;
+  size_bytes: number;
+  visibility: "residents" | "staff";
+  status: DocumentStatus;
+  error: string | null;
+  chunk_count: number;
+  indexed_at: string | null;
+  replaces_document_id: string | null;
+  superseded_by_id: string | null;
+  created_at: string;
+}
+
+export interface DocumentSearchHit {
+  document_id: string;
+  citation: string;
+  section: string | null;
+  excerpt: string;
+}
+
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  role: string | null;
+  phone_e164: string;
+  created_at: string;
 }

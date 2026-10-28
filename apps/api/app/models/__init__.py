@@ -11,7 +11,7 @@ from app.models.operations import (
     VisitorAuthorization,
 )
 from app.models.residents import EnrollmentCode, Resident, ResidentPhone, UnitMembership
-from app.models.tenancy import Building, Condominium, Organization, Unit
+from app.models.tenancy import Building, Condominium, EmergencyContact, Organization, Unit
 
 __all__ = [
     "AgentRun",
@@ -23,6 +23,7 @@ __all__ = [
     "Document",
     "EnrollmentCode",
     "DocumentChunk",
+    "EmergencyContact",
     "MaintenanceTicket",
     "Message",
     "NotificationEvent",

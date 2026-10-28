@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-Monorepo implemented through Milestone 2 (WhatsApp and AI foundation). Read `README.md` for the
+Monorepo implemented through Milestone 3 (knowledge base, maintenance tickets, notifications). Read `README.md` for the
 quickstart and `docs/adr/` before changing auth, tenancy, webhooks, or agent tooling.
 
 - `apps/api`: FastAPI + SQLAlchemy 2 (sync) + Alembic. Layout: `app/api` (thin routes),
   `app/services` (business logic, commits, audit), `app/rbac` (CondoContext, permissions),
-  `app/auth` (token verification), `app/models`, `app/integrations/whatsapp` (receiver and
-  sender), `app/workers` (inbound job, sweeper), `app/llm` (provider-neutral interface, Claude
+  `app/auth` (token verification), `app/models`, `app/integrations/whatsapp` (receiver,
+  sender, templates), `app/integrations/storage.py` (local disk / GCS), `app/workers` (inbound job, sweeper), `app/llm` (provider-neutral interface, Claude
   adapter, scripted stand-ins), `app/agents` (concierge, tools, prompts).
 - `apps/web`: Next.js App Router, Tailwind v4, shadcn/ui. UI copy is pt-BR. Brand tokens are in
   `src/app/globals.css`.
@@ -50,7 +50,16 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
 - The concierge system prompt (`app/agents/prompts/concierge_system.md`) must stay static
   (it's cached). Per-run facts go in `render_context()`.
 - WhatsApp side effects go through `services/conversations.send_outbound` with an idempotency
-  key. Never call the sender directly.
+  key. Never call the sender directly. Proactive messages go through
+  `services/notifications.enqueue` with a guard when they announce a state, so they're skipped
+  if the state changed before sending. New templates must also be added to
+  `docs/whatsapp-templates.md`.
+- Background work goes through `JobPublisher` topics handled in `app/workers/runner.py`
+  (`whatsapp-inbound`, `document-index`, `notification-send`). Tests use `JOBS_MODE=log` and the
+  `publisher` fixture, and run jobs explicitly.
+- Ticket category and priority come from `services/tickets.classify()` (ADR 0009). Don't store
+  model output directly as confirmed values.
+- Postgres search uses the `pt_unaccent` text search config (migration 0003).
 - Keep `apps/web/src/lib/types.ts` and `src/lib/permissions.ts` in sync with the API schemas and
   `app/rbac/permissions.py`.
 

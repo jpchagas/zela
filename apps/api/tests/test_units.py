@@ -63,6 +63,9 @@ def test_summary_counts_only_own_condominium(client, world):
         "residents_by_status": {"invited": 0, "active": 0, "suspended": 0, "revoked": 0},
         "staff": 2,
         "conversations_escalated": 0,
+        "tickets_open": 0,
+        "tickets_emergency_open": 0,
+        "documents_failed": 0,
     }
 
 

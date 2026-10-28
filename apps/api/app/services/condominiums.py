@@ -5,17 +5,18 @@ from app.core.errors import Forbidden
 from app.models import (
     Building,
     Condominium,
+    Document,
     OrganizationMembership,
     Resident,
     StaffMembership,
     Unit,
     User,
 )
-from app.models.enums import ActorType, ResidentStatus
+from app.models.enums import ActorType, DocumentStatus, ResidentStatus
 from app.rbac.context import CondoContext, OrgContext, resolve_condo_role
 from app.rbac.permissions import Role
 from app.schemas.tenancy import CondominiumCreate, CondominiumSummary, CondominiumUpdate
-from app.services import audit, conversations
+from app.services import audit, conversations, tickets
 from app.services.common import flush_or_conflict
 
 
@@ -81,6 +82,7 @@ def summary(db: Session, ctx: CondoContext) -> CondominiumSummary:
         stmt = select(func.count()).select_from(model).where(model.condominium_id == condo_id)
         return db.scalar(stmt.where(*where)) or 0
 
+    open_tickets, open_emergencies = tickets.count_open(db, condo_id)
     by_status = db.execute(
         select(Resident.status, func.count())
         .where(Resident.condominium_id == condo_id)
@@ -93,6 +95,9 @@ def summary(db: Session, ctx: CondoContext) -> CondominiumSummary:
         | {s.value: n for s, n in by_status},
         staff=count(StaffMembership, StaffMembership.revoked_at.is_(None)),
         conversations_escalated=conversations.count_escalated(db, condo_id),
+        tickets_open=open_tickets,
+        tickets_emergency_open=open_emergencies,
+        documents_failed=count(Document, Document.status == DocumentStatus.FAILED),
     )
 
 

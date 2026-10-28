@@ -21,13 +21,20 @@ async function request<T>(
   path: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
+  const isForm = init.body instanceof FormData;
   const response = await fetch(`${API_URL}${path}`, {
     method: init.method ?? "GET",
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.body !== undefined ? { "Content-Type": "application/json" } : {}),
+      // FormData sets its own multipart boundary.
+      ...(init.body !== undefined && !isForm ? { "Content-Type": "application/json" } : {}),
     },
-    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+    body:
+      init.body === undefined
+        ? undefined
+        : isForm
+          ? (init.body as FormData)
+          : JSON.stringify(init.body),
   });
   if (response.status === 204) return undefined as T;
   const data = await response.json().catch(() => null);
@@ -57,6 +64,7 @@ export function useApi() {
     post: <T>(path: string, body?: unknown) => call<T>(path, { method: "POST", body: body ?? {} }),
     patch: <T>(path: string, body: unknown) => call<T>(path, { method: "PATCH", body }),
     put: <T>(path: string, body: unknown) => call<T>(path, { method: "PUT", body }),
+    upload: <T>(path: string, form: FormData) => call<T>(path, { method: "POST", body: form }),
     del: (path: string) => call<void>(path, { method: "DELETE" }),
   };
 }

@@ -15,6 +15,7 @@ from app.models import Condominium, Message, Resident, ResidentPhone, UnitMember
 from app.models.enums import MessageDirection, ResidentStatus, UnitRelationship
 from app.services import webhooks
 from app.workers.inbound import process_webhook_event
+from tests.factories import FakePublisher
 
 _ids = itertools.count(1)
 
@@ -55,13 +56,20 @@ def deliver(
     sender: RecordingSender,
     llm: LLMClient | None = None,
     from_e164: str = RESIDENT_PHONE,
+    publisher=None,
     **kwargs,
 ) -> list[uuid.UUID]:
     """Record and process an inbound message like the webhook + worker would."""
     payload = inbound_payload(condo, from_e164, text, **kwargs)
     ids = [uuid.UUID(i) for i in webhooks.record_new_events(db, extract_events(payload))]
     for event_id in ids:
-        process_webhook_event(db, event_id, llm=llm or ScriptedLLM(), sender=sender)
+        process_webhook_event(
+            db,
+            event_id,
+            llm=llm or ScriptedLLM(),
+            sender=sender,
+            publisher=publisher or FakePublisher(),
+        )
     return ids
 
 

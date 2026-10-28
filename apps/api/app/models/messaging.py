@@ -111,6 +111,8 @@ class NotificationEvent(IdMixin, TimestampMixin, Base):
         ForeignKey("residents.id", ondelete="SET NULL")
     )
     channel: Mapped[str] = mapped_column(String(20), default="whatsapp")
+    # Residents and non-residents (e.g. on-call contacts) are addressed by number.
+    recipient_e164: Mapped[str] = mapped_column(String(20))
     template: Mapped[str] = mapped_column(String(80))
     entity_type: Mapped[str | None] = mapped_column(String(60))
     entity_id: Mapped[uuid.UUID | None] = mapped_column()
@@ -119,6 +121,10 @@ class NotificationEvent(IdMixin, TimestampMixin, Base):
         db_enum(DeliveryStatus), default=DeliveryStatus.PENDING
     )
     provider_message_id: Mapped[str | None] = mapped_column(String(200))
+    # The conversation message this notification was delivered as.
+    message_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="SET NULL")
+    )
     attempts: Mapped[int] = mapped_column(default=0)
     error: Mapped[str | None] = mapped_column(Text)
     data: Mapped[dict] = mapped_column(JSONB, default=dict)

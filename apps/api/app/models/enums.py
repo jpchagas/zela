@@ -82,6 +82,8 @@ class DeliveryStatus(StrEnum):
     DELIVERED = "delivered"
     READ = "read"
     FAILED = "failed"
+    # Notification no longer true when its turn came (e.g. the ticket moved on).
+    SKIPPED = "skipped"
 
 
 class TicketStatus(StrEnum):
@@ -91,6 +93,20 @@ class TicketStatus(StrEnum):
     WAITING_EXTERNAL = "waiting_external"
     RESOLVED = "resolved"
     CLOSED = "closed"
+
+
+class TicketCategory(StrEnum):
+    """Fixed list (one for every condominium for now). The AI may only suggest these."""
+
+    ELEVATORS = "elevators"
+    GATES_ACCESS = "gates_access"
+    PLUMBING = "plumbing"
+    ELECTRICAL = "electrical"
+    CLEANING = "cleaning"
+    SECURITY = "security"
+    COMMON_AREAS = "common_areas"
+    NOISE = "noise"
+    OTHER = "other"
 
 
 class TicketPriority(StrEnum):

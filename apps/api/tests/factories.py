@@ -22,6 +22,20 @@ from app.models import (
 from app.models.enums import OrgRole, StaffRole
 
 
+class FakePublisher:
+    def __init__(self):
+        self.jobs: list[tuple[str, dict[str, str]]] = []
+
+    def publish(self, topic: str, payload: dict[str, str]) -> None:
+        self.jobs.append((topic, payload))
+
+    def take(self, topic: str) -> list[dict[str, str]]:
+        """Pop and return the payloads published to `topic`."""
+        taken = [p for t, p in self.jobs if t == topic]
+        self.jobs = [(t, p) for t, p in self.jobs if t != topic]
+        return taken
+
+
 def auth(email: str) -> dict[str, str]:
     return {"Authorization": f"Bearer dev:{email}"}
 

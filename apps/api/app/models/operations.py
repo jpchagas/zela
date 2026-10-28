@@ -18,6 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base, IdMixin, TimestampMixin
 from app.models.enums import (
     ActorType,
+    TicketCategory,
     TicketPriority,
     TicketStatus,
     VisitorAuthorizationStatus,
@@ -62,12 +63,16 @@ class MaintenanceTicket(IdMixin, TimestampMixin, Base):
     description: Mapped[str] = mapped_column(Text)
     location: Mapped[str | None] = mapped_column(String(200))
     # Confirmed values, set by deterministic validation or a human.
-    category: Mapped[str | None] = mapped_column(String(60))
+    category: Mapped[TicketCategory] = mapped_column(
+        db_enum(TicketCategory, name="category"), default=TicketCategory.OTHER
+    )
     priority: Mapped[TicketPriority] = mapped_column(
         db_enum(TicketPriority), default=TicketPriority.NORMAL
     )
     # What the model proposed, kept separate so the UI can label it as a suggestion.
-    ai_suggested_category: Mapped[str | None] = mapped_column(String(60))
+    ai_suggested_category: Mapped[TicketCategory | None] = mapped_column(
+        db_enum(TicketCategory, name="ai_suggested_category")
+    )
     ai_suggested_priority: Mapped[TicketPriority | None] = mapped_column(
         db_enum(TicketPriority, name="ai_suggested_priority")
     )
@@ -77,6 +82,11 @@ class MaintenanceTicket(IdMixin, TimestampMixin, Base):
     )
     idempotency_key: Mapped[str | None] = mapped_column(String(200))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # The WhatsApp conversation the ticket came from, if any.
+    conversation_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("conversations.id", ondelete="SET NULL")
+    )
 
 
 class TicketEvent(IdMixin, Base):

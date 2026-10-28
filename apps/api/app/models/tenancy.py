@@ -69,3 +69,17 @@ class Unit(IdMixin, TimestampMixin, Base):
     building_id: Mapped[uuid.UUID | None] = mapped_column()
     identifier: Mapped[str] = mapped_column(String(40))
     floor: Mapped[str | None] = mapped_column(String(10))
+
+
+class EmergencyContact(IdMixin, TimestampMixin, Base):
+    """On-call people alerted on WhatsApp when a resident reports an emergency."""
+
+    __tablename__ = "emergency_contacts"
+    __table_args__ = (UniqueConstraint("condominium_id", "phone_e164"),)
+
+    condominium_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("condominiums.id", ondelete="CASCADE"), index=True
+    )
+    name: Mapped[str] = mapped_column(String(120))
+    role: Mapped[str | None] = mapped_column(String(80))
+    phone_e164: Mapped[str] = mapped_column(String(20))

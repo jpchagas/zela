@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { useCondo } from "@/components/condo-context";
+import { EmergencyContactsCard } from "@/components/emergency-contacts-card";
 import { Field } from "@/components/form-dialog";
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
@@ -78,6 +79,9 @@ export default function SettingsPage() {
           )}
         </CardContent>
       </Card>
+      <div className="mt-6">
+        <EmergencyContactsCard condoId={condoId} />
+      </div>
     </>
   );
 }

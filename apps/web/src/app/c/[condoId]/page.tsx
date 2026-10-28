@@ -1,5 +1,6 @@
 "use client";
 
+import { Siren } from "lucide-react";
 import Link from "next/link";
 
 import { useCondo } from "@/components/condo-context";
@@ -21,10 +22,10 @@ export default function OverviewPage() {
 
   const residents = summary?.residents_by_status;
   const stats = [
-    { label: "Unidades", value: summary?.units, href: "/units" },
+    { label: "Chamados em aberto", value: summary?.tickets_open, href: "/tickets" },
     { label: "Moradores ativos", value: residents?.active, href: "/residents?status=active" },
     { label: "Convites pendentes", value: residents?.invited, href: "/residents?status=invited" },
-    { label: "Equipe", value: summary?.staff, href: "/staff" },
+    { label: "Unidades", value: summary?.units, href: "/units" },
   ];
 
   return (
@@ -35,6 +36,28 @@ export default function OverviewPage() {
           [condominium?.city, condominium?.state].filter(Boolean).join(" · ") || undefined
         }
       />
+
+      {!!summary?.tickets_emergency_open && (
+        <Link
+          href={`${basePath}/tickets?priority=emergency`}
+          className="mb-4 flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 p-4 text-sm font-medium text-red-950 hover:border-red-400"
+        >
+          <Siren className="size-4 text-red-600" />
+          {summary.tickets_emergency_open === 1
+            ? "1 emergência em aberto"
+            : `${summary.tickets_emergency_open} emergências em aberto`}
+          . Ver chamados
+        </Link>
+      )}
+      {!!summary?.documents_failed && (
+        <Link
+          href={`${basePath}/documents`}
+          className="mb-4 block rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"
+        >
+          {summary.documents_failed} documento(s) não puderam ser processados e não estão sendo
+          usados pelo assistente.
+        </Link>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s) => (

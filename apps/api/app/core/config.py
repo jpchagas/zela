@@ -33,6 +33,13 @@ class Settings(BaseSettings):
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     llm_timeout_seconds: float = 45.0
 
+    # Uploaded files. "local" writes under local_storage_dir; "gcs" uses storage_bucket
+    # (pip install '.[gcp]'; credentials via Application Default Credentials).
+    storage_backend: Literal["local", "gcs"] = "local"
+    local_storage_dir: str = ".data/uploads"
+    storage_bucket: str = ""
+    max_upload_mb: int = 15
+
     # "inline" runs jobs in a thread pool inside the API process (local dev and tests).
     # Pub/Sub push delivery arrives with the deployment milestone.
     jobs_mode: Literal["inline", "log"] = "inline"

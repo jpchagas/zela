@@ -18,6 +18,7 @@ from typing import Any, ClassVar, Generic, TypeVar
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.core.jobs import JobPublisher
 from app.llm.base import ToolSpec
 
 ArgsT = TypeVar("ArgsT", bound=BaseModel)
@@ -31,6 +32,8 @@ class ToolContext:
     agent_run_id: uuid.UUID
     # Derived from the triggering webhook event, so a retried run can't act twice.
     idempotency_key: str
+    # For tools whose effects continue in the background (e.g. emergency alerts).
+    publisher: JobPublisher
 
 
 class ToolError(Exception):

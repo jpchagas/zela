@@ -10,6 +10,8 @@ os.environ.update(
     DATABASE_URL=TEST_DATABASE_URL,
     WHATSAPP_APP_SECRET="test-app-secret",
     WHATSAPP_VERIFY_TOKEN="test-verify-token",
+    # Tests run jobs explicitly; nothing may run on background threads.
+    JOBS_MODE="log",
 )
 
 from collections.abc import Iterator  # noqa: E402
@@ -22,9 +24,11 @@ from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import create_engine  # noqa: E402
 from sqlalchemy.orm import Session  # noqa: E402
 
+from app.core.jobs import get_job_publisher  # noqa: E402
 from app.db.session import get_db  # noqa: E402
+from app.integrations.storage import LocalBlobStore, get_blob_store  # noqa: E402
 from app.main import app  # noqa: E402
-from tests.factories import World, build_world  # noqa: E402
+from tests.factories import FakePublisher, World, build_world  # noqa: E402
 
 
 @pytest.fixture(scope="session")
@@ -68,6 +72,21 @@ def client(db: Session) -> Iterator[TestClient]:
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def store(tmp_path):
+    blob_store = LocalBlobStore(str(tmp_path / "uploads"))
+    app.dependency_overrides[get_blob_store] = lambda: blob_store
+    return blob_store
+
+
+@pytest.fixture
+def publisher():
+    """Collects published jobs; tests run them explicitly."""
+    fake = FakePublisher()
+    app.dependency_overrides[get_job_publisher] = lambda: fake
+    return fake
 
 
 @pytest.fixture

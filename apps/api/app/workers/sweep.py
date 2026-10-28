@@ -10,9 +10,9 @@ from sqlalchemy import or_, select
 
 from app.core.jobs import get_job_publisher
 from app.db.session import SessionLocal
-from app.models import WebhookEvent
-from app.models.enums import JobStatus
-from app.workers.runner import INBOUND_TOPIC
+from app.models import Document, NotificationEvent, WebhookEvent
+from app.models.enums import DeliveryStatus, DocumentStatus, JobStatus
+from app.workers.runner import DOCUMENT_TOPIC, INBOUND_TOPIC, NOTIFICATION_TOPIC
 
 STALE_AFTER = timedelta(minutes=2)
 MAX_ATTEMPTS = 5
@@ -38,13 +38,45 @@ def find_requeueable(db, now: datetime) -> list[WebhookEvent]:
     )
 
 
+def find_stuck_documents(db, now: datetime) -> list[Document]:
+    return list(
+        db.scalars(
+            select(Document).where(
+                Document.status.in_([DocumentStatus.PENDING, DocumentStatus.INDEXING]),
+                Document.updated_at < now - STALE_AFTER,
+            )
+        )
+    )
+
+
+def find_stuck_notifications(db, now: datetime) -> list[NotificationEvent]:
+    return list(
+        db.scalars(
+            select(NotificationEvent).where(
+                NotificationEvent.status == DeliveryStatus.PENDING,
+                NotificationEvent.attempts < MAX_ATTEMPTS,
+                NotificationEvent.updated_at < now - STALE_AFTER,
+            )
+        )
+    )
+
+
 def main() -> None:
     publisher = get_job_publisher()
+    now = datetime.now(timezone.utc)
     with SessionLocal() as db:
-        events = find_requeueable(db, datetime.now(timezone.utc))
+        events = find_requeueable(db, now)
         for event in events:
             publisher.publish(INBOUND_TOPIC, {"webhook_event_id": str(event.id)})
-    print(f"Re-queued {len(events)} event(s)")
+        docs = find_stuck_documents(db, now)
+        for document in docs:
+            publisher.publish(DOCUMENT_TOPIC, {"document_id": str(document.id)})
+        pending = find_stuck_notifications(db, now)
+        for notification in pending:
+            publisher.publish(NOTIFICATION_TOPIC, {"notification_id": str(notification.id)})
+    print(
+        f"Re-queued {len(events)} event(s), {len(docs)} document(s), {len(pending)} notification(s)"
+    )
 
 
 if __name__ == "__main__":

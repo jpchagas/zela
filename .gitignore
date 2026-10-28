@@ -24,3 +24,6 @@ service-account*.json
 # OS / editor
 .DS_Store
 .idea/
+
+# Local uploads
+apps/api/.data/

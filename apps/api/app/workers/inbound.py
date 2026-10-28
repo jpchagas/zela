@@ -14,11 +14,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agents.concierge import run_concierge
+from app.core.jobs import JobPublisher
 from app.integrations.whatsapp.sender import WhatsAppSender
 from app.llm.base import LLMClient
 from app.models import Condominium, Conversation, Message, Resident, WebhookEvent
 from app.models.enums import ConversationStatus, JobStatus, MessageKind, ResidentStatus
-from app.services import conversations, enrollment
+from app.services import conversations, emergency_contacts, enrollment
 from app.services.enrollment import EnrollmentResult
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,10 @@ ENROLLED = (
     "pedido por aqui, e se precisar, eu chamo a equipe."
 )
 TEXT_ONLY = "Por enquanto só consigo ler mensagens de texto. Pode escrever o que precisa?"
+ON_CALL_ACK = (
+    "Mensagem recebida. Este número está no plantão de emergência do {condo}: acompanhe e "
+    "atualize os chamados pelo painel do Zela."
+)
 
 
 class UnroutableEvent(Exception):
@@ -46,7 +51,12 @@ class UnroutableEvent(Exception):
 
 
 def process_webhook_event(
-    db: Session, event_id: uuid.UUID, *, llm: LLMClient, sender: WhatsAppSender
+    db: Session,
+    event_id: uuid.UUID,
+    *,
+    llm: LLMClient,
+    sender: WhatsAppSender,
+    publisher: JobPublisher | None = None,
 ) -> None:
     event = db.get(WebhookEvent, event_id)
     if event is None or event.status == JobStatus.PROCESSED:
@@ -57,7 +67,7 @@ def process_webhook_event(
         if event.event_type == "status":
             _handle_status(db, event.payload)
         elif event.event_type == "message":
-            _handle_message(db, event.payload, llm=llm, sender=sender)
+            _handle_message(db, event.payload, llm=llm, sender=sender, publisher=publisher)
         event.status = JobStatus.PROCESSED
         event.processed_at = datetime.now(timezone.utc)
         event.error = None
@@ -100,7 +110,14 @@ def _conversation_lock(db: Session, condominium_id: uuid.UUID, contact: str) -> 
         db.commit()
 
 
-def _handle_message(db: Session, payload: dict, *, llm: LLMClient, sender: WhatsAppSender) -> None:
+def _handle_message(
+    db: Session,
+    payload: dict,
+    *,
+    llm: LLMClient,
+    sender: WhatsAppSender,
+    publisher: JobPublisher | None,
+) -> None:
     message = payload["message"]
     condominium = db.scalar(
         select(Condominium).where(
@@ -122,7 +139,9 @@ def _handle_message(db: Session, payload: dict, *, llm: LLMClient, sender: Whats
             provider_message_id=message["id"],
             body=text if text is not None else f"[{message.get('type', 'desconhecido')}]",
         )
-        kind, reply = _decide_reply(db, llm, condominium, conversation, inbound, contact, text)
+        kind, reply = _decide_reply(
+            db, llm, publisher, condominium, conversation, inbound, contact, text
+        )
         if reply:
             conversations.send_outbound(
                 db,
@@ -138,6 +157,7 @@ def _handle_message(db: Session, payload: dict, *, llm: LLMClient, sender: Whats
 def _decide_reply(
     db: Session,
     llm: LLMClient,
+    publisher: JobPublisher | None,
     condominium: Condominium,
     conversation: Conversation,
     inbound: Message,
@@ -150,6 +170,8 @@ def _decide_reply(
 
     phone = enrollment.find_phone(db, condominium.id, contact)
     if phone is None:
+        if emergency_contacts.is_emergency_contact(db, condominium.id, contact):
+            return system, ON_CALL_ACK.format(condo=condominium.name)
         return system, UNKNOWN_NUMBER.format(condo=condominium.name)
     resident = db.get(Resident, phone.resident_id)
     if resident.status in (ResidentStatus.SUSPENDED, ResidentStatus.REVOKED):
@@ -183,5 +205,6 @@ def _decide_reply(
         conversation=conversation,
         resident=resident,
         trigger=inbound,
+        publisher=publisher,
     )
     return MessageKind.AI_REPLY, run.reply_text
