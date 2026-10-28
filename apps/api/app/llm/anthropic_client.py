@@ -17,7 +17,12 @@ from app.llm.base import (
 
 # Re-runs a classifier-declined request on Anthropic's recommended model for that
 # refusal category, instead of returning the refusal to us.
+# Haiku has no server-side fallback (a fallback model list is a 400 there), so only
+# models that support the "default" form get it.
 FALLBACK_BETA = "server-side-fallback-2026-07-01"
+FALLBACK_MODELS = frozenset(
+    {"claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"}
+)
 
 _STOP = {
     "end_turn": StopReason.END,
@@ -78,13 +83,17 @@ class AnthropicSession:
 
     def next_turn(self) -> Turn:
         llm = self._llm
+        fallback: dict[str, Any] = (
+            {"betas": [FALLBACK_BETA], "fallbacks": "default"}
+            if llm.model in FALLBACK_MODELS
+            else {}
+        )
         try:
             response = llm._client.beta.messages.create(
                 model=llm.model,
                 max_tokens=llm._max_tokens,
                 output_config={"effort": llm._effort},
-                betas=[FALLBACK_BETA],
-                fallbacks="default",
+                **fallback,
                 # Also cache the growing conversation, which the tool loop re-sends.
                 cache_control={"type": "ephemeral"},
                 system=self._system,

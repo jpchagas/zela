@@ -37,10 +37,10 @@ class FakeMessages:
         return item
 
 
-def _llm(responses):
+def _llm(responses, model="claude-opus-5-5"):
     messages = FakeMessages(responses)
     client = SimpleNamespace(beta=SimpleNamespace(messages=messages))
-    return AnthropicLLM(client, model="claude-opus-5-5", effort="medium"), messages
+    return AnthropicLLM(client, model=model, effort="medium"), messages
 
 
 TOOLS = [ToolSpec("get_resident_context", "desc", {"type": "object", "properties": {}})]
@@ -89,6 +89,14 @@ def test_request_shape_and_tool_loop():
             "is_error": False,
         }
     ]
+
+
+def test_haiku_requests_omit_fallbacks():
+    llm, messages = _llm([_response([])], model="claude-haiku-5-5")
+    llm.start(system="S", context="C", history=[ChatMessage("user", "x")], tools=TOOLS).next_turn()
+    call = messages.calls[0]
+    assert call["model"] == "claude-haiku-5-5"
+    assert "betas" not in call and "fallbacks" not in call
 
 
 def test_refusal_maps_to_refusal_stop():

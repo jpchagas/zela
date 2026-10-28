@@ -166,7 +166,7 @@ def _claude() -> AnthropicLLM:
 
     return AnthropicLLM(
         anthropic.Anthropic(timeout=60.0, max_retries=2),
-        model=os.environ.get("ZELA_EVAL_MODEL", "claude-opus-5-5"),
+        model=os.environ.get("ZELA_EVAL_MODEL", "claude-haiku-5-5"),
         effort=os.environ.get("ZELA_EVAL_EFFORT", "medium"),
     )
 

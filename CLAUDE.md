@@ -4,8 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-Monorepo implemented through Milestone 3 (knowledge base, maintenance tickets, notifications). Read `README.md` for the
-quickstart and `docs/adr/` before changing auth, tenancy, webhooks, or agent tooling.
+**Changing direction (ADR 0010, branch `feat/sheets-pivot`).** Zela is a low-cost,
+WhatsApp-first product. Everyone uses WhatsApp: manager, owners, residents and staff. The
+condominium's records are Google Sheets in the manager's Drive. The website is setup only,
+for the manager: connect WhatsApp, connect Drive. Postgres keeps only setup and plumbing data.
+
+The code below is still the Milestone 1–3 build: a dashboard, with Postgres as the record. It
+is being reworked in phases. New code follows ADR 0010. Don't add features to the dashboard
+work screens or to the Postgres business tables. Read `README.md` for the quickstart and
+`docs/adr/` before changing auth, tenancy, webhooks, storage or agent tooling.
 
 - `apps/api`: FastAPI + SQLAlchemy 2 (sync) + Alembic. Layout: `app/api` (thin routes),
   `app/services` (business logic, commits, audit), `app/rbac` (CondoContext, permissions),
@@ -63,18 +70,25 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
 - Keep `apps/web/src/lib/types.ts` and `src/lib/permissions.ts` in sync with the API schemas and
   `app/rbac/permissions.py`.
 
-## Stack and open decisions (see PDD §10.2 and §16, ADRs 0001–0006)
+## Stack and open decisions (see PDD §16 and ADRs 0001–0010)
 
-- Web: Next.js + TypeScript, Tailwind CSS + shadcn/ui
-- API: Python + FastAPI, PostgreSQL, SQLAlchemy + Alembic
-- AI: OpenAI API; retrieval through Postgres full-text and/or vector search
-- GCP: Cloud Run, Cloud Storage, Pub/Sub, Cloud Logging
-- Auth: Firebase Auth (decided, ADR 0002)
+- Web: Next.js + TypeScript, Tailwind CSS + shadcn/ui. Used for setup only.
+- API: Python + FastAPI. A slim Postgres (SQLAlchemy + Alembic) holds setup and plumbing data only.
+- Records: Google Sheets in the manager's Drive (ADR 0010). OneDrive may come later; Dropbox is
+  out of scope unless customers ask for it.
+- AI: provider-neutral layer (ADR 0007). The default model is `claude-haiku-5-5` (cost), set
+  with `LLM_MODEL`.
+- GCP: Cloud Run, Pub/Sub, Cloud Logging
+- Auth: Firebase Auth for the manager's setup login (ADR 0002)
 
-Decided on 2026-10-22: Firebase Auth, Postgres as the system of record, Meta Cloud API direct,
-and organization → many condominiums. Still open (PDD §16): human support channel, visitor-workflow
-integration, first commercial feature, billing, and pilot customer type. Do not hard-code assumptions about
+Decided: Firebase Auth, Meta Cloud API direct, organization → many condominiums (2026-10-22).
+On 2026-10-28: WhatsApp for every role, Google Sheets as the record, a setup-only website,
+and Haiku as the default model. Still open (PDD §16): visitor-workflow integration, first
+commercial feature, billing, and pilot customer type. Do not hard-code assumptions about
 those. Raise them with the user.
+
+Keep it low cost. Prefer free-tier-friendly choices. Keep the number of LLM calls and their
+tokens down, and batch Sheets API calls.
 
 ## Architectural invariants
 
@@ -82,14 +96,14 @@ These rules come from the design doc and should shape any code written here:
 
 - **Layering:** WhatsApp/Web → API → Auth & RBAC → Business Services → Agent Orchestrator → Approved Tools → DB. The agent layer calls business services and never bypasses their validation or authorization.
 - **Agents act only through explicit backend tools** (e.g. `get_resident_context`, `search_condominium_documents`, `create_maintenance_ticket`, `create_visitor_authorization`). They never generate raw DB operations. Each tool validates the actor, the condominium scope, its inputs, and the business rules. A model's interpretation of a request never counts as authorization.
-- **The database is the source of truth.** It outranks model output and chat history. Never report an action as successful until it has been persisted. Notifications must reflect the stored state.
-- **Multi-tenant isolation:** all tenant data is scoped to an organization and a condominium. Cross-condominium access must be prevented and covered by tests. Residents must never be able to enumerate the directory or see other residents' data through chat.
-- **Idempotency:** WhatsApp webhooks are retried and duplicated. Duplicate events must not create duplicate business operations. Verify webhook signatures.
+- **The stored record is the source of truth.** For condominium data that is the Google Sheet; for setup and plumbing it is Postgres. It outranks model output and chat history. Never report an action as successful until the write is confirmed. Re-read a row before acting on it, because people edit the sheets by hand. Notifications must reflect the stored state.
+- **Multi-tenant isolation:** all tenant data is scoped to an organization and a condominium, and each condominium uses its own Drive credentials and spreadsheet IDs. Cross-condominium access must be prevented and covered by tests. Residents must never be able to enumerate the directory or see other residents' data through chat. What a sender may do depends on their role in the Pessoas sheet, and the backend validates that role. The model's view of who is writing never counts.
+- **Idempotency:** WhatsApp webhooks are retried and duplicated. Duplicate events must not create duplicate business operations; sheet rows carry a Zela ID that is checked before writing. Verify webhook signatures.
 - **Async work:** long tasks like document indexing and notifications go to background workers. The webhook response must not wait on them.
 - **Untrusted input:** resident messages and uploaded documents are untrusted, so guard against prompt injection. RAG answers must cite their sources and say plainly when they are uncertain rather than make something up.
 - **Auditability:** record tool calls, ticket changes, and security-sensitive actions as audit events or agent runs.
-- **AI suggestions** (category, priority) go through deterministic validation. The UI must visually separate AI suggestions from confirmed records.
-- **LGPD:** collect only the data needed, set retention for personal data and conversation content, and keep secrets out of ordinary application records.
+- **AI suggestions** (category, priority) go through deterministic validation. Keep AI suggestions separate from confirmed values, both in the sheet columns and in the messages.
+- **LGPD:** collect only the data needed. Personal data lives in the customer's Drive; Postgres keeps phone numbers only for routing, plus short-lived conversation text with a retention limit. Keep secrets, such as OAuth tokens, encrypted and out of ordinary records.
 
 ## Product conventions
 

@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     # "anthropic" calls the Claude API (ANTHROPIC_API_KEY is read by the SDK);
     # "scripted" is a canned responder for local runs without an API key.
     llm_provider: Literal["anthropic", "scripted"] = "anthropic"
-    llm_model: str = "claude-opus-5-5"
+    llm_model: str = "claude-haiku-5-5"
     llm_effort: Literal["low", "medium", "high", "xhigh", "max"] = "medium"
     llm_timeout_seconds: float = 45.0
 
