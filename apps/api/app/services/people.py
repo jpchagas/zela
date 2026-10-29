@@ -134,6 +134,73 @@ def identify(db: Session, google: Google, condo: Condominium, contact: str) -> P
     )
 
 
+class AmbiguousUnit(Exception):
+    def __init__(self, blocks: list[str]):
+        super().__init__(", ".join(blocks))
+        self.blocks = blocks
+
+
+def resolve_place(people_table: Table, block: str, unit: str) -> tuple[str, str]:
+    """The block and unit as the Pessoas sheet writes them. Without a block, a unit
+    number that exists in several blocks is ambiguous (raises AmbiguousUnit). A unit
+    nobody is registered on is kept as typed."""
+    wanted_unit, wanted_block = normalize_header(unit), normalize_header(block)
+    matches = {
+        (r.values["block"], r.values["unit"])
+        for r in people_table.rows
+        if is_active(r)
+        and normalize_header(r.values["unit"]) == wanted_unit
+        and (not wanted_block or normalize_header(r.values["block"]) == wanted_block)
+    }
+    if not matches:
+        return block.strip(), unit.strip()
+    if len(matches) > 1:
+        raise AmbiguousUnit(sorted(b or "sem bloco" for b, _ in matches))
+    return matches.pop()
+
+
+def unit_contacts(people_table: Table, block: str, unit: str, name: str) -> tuple[list[Row], bool]:
+    """Who to tell about something for (block, unit): the named person if registered
+    there; otherwise the unit's residents, or its owners when nobody lives there as a
+    resident. Returns the rows and whether the name matched."""
+    rows = [
+        r
+        for r in people_table.rows
+        if is_active(r) and same_place(r, block, unit) and phone_of(r) is not None
+    ]
+    words = normalize_header(name).split()
+    if words:
+        named = [r for r in rows if set(words) <= set(normalize_header(r.values["name"]).split())]
+        if named:
+            return named, True
+    residents = [r for r in rows if parse_role(r.values["role"]) == PersonRole.RESIDENT]
+    return residents or rows, False
+
+
+# Stands for the confirmed manager number in "ID de quem..." columns, for a manager who
+# has no row in Pessoas.
+MANAGER_ID = "SINDICO"
+
+
+def id_of(person: Person, membership: Membership | None = None) -> str:
+    """The Pessoas ID to record as the actor of a row (e.g. "ID de quem registrou")."""
+    if membership and membership.zela_id:
+        return membership.zela_id
+    own = next((m.zela_id for m in person.memberships if m.zela_id), "")
+    return own or (MANAGER_ID if person.is_confirmed_manager else "")
+
+
+def phone_for_id(people_table: Table, condo: Condominium, person_id: str) -> str | None:
+    """The WhatsApp of whoever `id_of` recorded, if they're still active."""
+    if person_id == MANAGER_ID:
+        confirmed = condo.manager_phone_confirmed_at is not None
+        return condo.manager_phone_e164 if confirmed else None
+    row = people_table.find(person_id) if person_id else None
+    if row is None or not is_active(row):
+        return None
+    return phone_of(row)
+
+
 def open_people(db: Session, google: Google, condominium_id: uuid.UUID) -> Table:
     """The Pessoas table, locked for writing (commit to release)."""
     return drive.open_table(db, google, condominium_id, RegisterKind.PEOPLE)

@@ -16,9 +16,9 @@ from app.models import Condominium
 from app.models.enums import ActorType, RegisterKind
 from app.registers.table import Row
 from app.services import audit, deliveries, drive, people
-from app.services.deliveries import PICKED_UP, RETURNED, AmbiguousUnit
+from app.services.deliveries import PICKED_UP, RETURNED
 from app.services.drive import RegisterUnavailable
-from app.services.people import PersonRole
+from app.services.people import AmbiguousUnit, PersonRole
 
 SHEETS_DOWN = "The spreadsheets can't be used right now: {reason} Nothing was changed."
 

@@ -83,6 +83,33 @@ Samples: `Ana` · `B 302` · `Caixa Mercado Livre` · `8`
 Sent to the named recipient if registered on the unit, otherwise to its residents (ADR 0013).
 Skipped if the package was picked up before the message went out.
 
+### `zela_visitor_at_gate` (Utility)
+
+```
+🔔 {{1}} está na portaria do {{2}} procurando a unidade {{3}}. Pode entrar? Responda aqui com SIM ou NÃO (código {{4}}).
+```
+
+Samples: `Diego Alves` · `Residencial Aurora` · `B 302` · `482913`
+
+Sent to the unit's people when the desk announces a visitor (ADR 0014). Skipped if someone
+already answered.
+
+### `zela_visitor_answer` (Utility)
+
+```
+Portaria: a unidade {{1}} {{2}} a entrada de {{3}} (código {{4}}).
+```
+
+Samples: `B 302` · `liberou` · `Diego Alves` · `482913`
+
+### `zela_visitor_arrived` (Utility)
+
+```
+🔔 {{1}} entrou no {{2}} às {{3}}, com a autorização {{4}}.
+```
+
+Samples: `Rafael Costa` · `Residencial Aurora` · `15:04` · `482913`
+
 ## Changing a template
 
 Meta treats an edited body as a new submission. Change the text in `templates.py` and in

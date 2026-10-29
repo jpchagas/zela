@@ -72,8 +72,9 @@ def deliver(
     sender: WhatsAppSender,
     google: "Google | None" = None,
 ) -> None:
-    """`google` is needed for notifications guarded on a sheet (occurrences, deliveries). If
-    that sheet can't be read, this raises and the notification stays pending for a retry."""
+    """`google` is needed for notifications guarded on a sheet (occurrences, deliveries,
+    visitors). If that sheet can't be read, this raises and the notification stays pending
+    for a retry."""
     notification = db.get(NotificationEvent, notification_id)
     if notification is None or notification.status != DeliveryStatus.PENDING:
         return
@@ -122,6 +123,18 @@ def _guard_holds(db: Session, notification: NotificationEvent, google: "Google |
             notification.condominium_id,
             occurrence["number"],
             occurrence["status"],
+        )
+    visitor = guard.get("visitor_status")
+    if visitor is not None:
+        from app.integrations.google.factory import get_google
+        from app.services import visitors
+
+        return visitors.status_still(
+            db,
+            google or get_google(),
+            notification.condominium_id,
+            visitor["code"],
+            visitor["status"],
         )
     delivery = guard.get("delivery_waiting")
     if delivery is not None:

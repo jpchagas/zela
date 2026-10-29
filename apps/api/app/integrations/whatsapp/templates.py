@@ -104,6 +104,33 @@ DELIVERY_ARRIVED = Template(
     params=("first_name", "place", "description", "number"),
 )
 
+VISITOR_AT_GATE = Template(
+    name="zela_visitor_at_gate",
+    language="pt_BR",
+    category="UTILITY",
+    body=(
+        "🔔 {{1}} está na portaria do {{2}} procurando a unidade {{3}}. Pode entrar? "
+        "Responda aqui com SIM ou NÃO (código {{4}})."
+    ),
+    params=("visitor", "condominium", "place", "code"),
+)
+
+VISITOR_ANSWER = Template(
+    name="zela_visitor_answer",
+    language="pt_BR",
+    category="UTILITY",
+    body="Portaria: a unidade {{1}} {{2}} a entrada de {{3}} (código {{4}}).",
+    params=("place", "answer", "visitor", "code"),
+)
+
+VISITOR_ARRIVED = Template(
+    name="zela_visitor_arrived",
+    language="pt_BR",
+    category="UTILITY",
+    body="🔔 {{1}} entrou no {{2}} às {{3}}, com a autorização {{4}}.",
+    params=("visitor", "condominium", "time", "code"),
+)
+
 TEMPLATES = {
     t.name: t
     for t in (
@@ -114,5 +141,8 @@ TEMPLATES = {
         OCCURRENCE_UPDATE,
         OCCURRENCE_EMERGENCY,
         DELIVERY_ARRIVED,
+        VISITOR_AT_GATE,
+        VISITOR_ANSWER,
+        VISITOR_ARRIVED,
     )
 }

@@ -18,17 +18,11 @@ from app.models import Condominium
 from app.models.enums import ActorType, RegisterKind
 from app.registers.table import Row, Table, normalize_header
 from app.services import audit, drive, notifications, people, tickets
-from app.services.people import Person, PersonRole
+from app.services.people import Person
 
 WAITING = "Aguardando retirada"
 PICKED_UP = "Retirada"
 RETURNED = "Devolvida"
-
-
-class AmbiguousUnit(Exception):
-    def __init__(self, blocks: list[str]):
-        super().__init__(", ".join(blocks))
-        self.blocks = blocks
 
 
 @dataclass(frozen=True)
@@ -54,45 +48,6 @@ def place_of(row: Row) -> str:
     return " ".join(p for p in (row.values["block"], row.values["unit"]) if p) or "-"
 
 
-def resolve_place(people_table: Table, block: str, unit: str) -> tuple[str, str]:
-    """The block and unit as the Pessoas sheet writes them. Without a block, a unit
-    number that exists in several blocks is ambiguous (raises AmbiguousUnit). A unit
-    nobody is registered on is kept as typed."""
-    wanted_unit, wanted_block = normalize_header(unit), normalize_header(block)
-    matches = {
-        (r.values["block"], r.values["unit"])
-        for r in people_table.rows
-        if people.is_active(r)
-        and normalize_header(r.values["unit"]) == wanted_unit
-        and (not wanted_block or normalize_header(r.values["block"]) == wanted_block)
-    }
-    if not matches:
-        return block.strip(), unit.strip()
-    if len(matches) > 1:
-        raise AmbiguousUnit(sorted(b or "sem bloco" for b, _ in matches))
-    return matches.pop()
-
-
-def recipients(people_table: Table, block: str, unit: str, name: str) -> tuple[list[Row], bool]:
-    """Who to tell about a package for (block, unit): the named person if registered
-    there; otherwise the unit's residents, or its owners when nobody lives there as a
-    resident. Returns the rows and whether the name matched."""
-    rows = [
-        r
-        for r in people_table.rows
-        if people.is_active(r)
-        and people.same_place(r, block, unit)
-        and people.phone_of(r) is not None
-    ]
-    words = normalize_header(name).split()
-    if words:
-        named = [r for r in rows if set(words) <= set(normalize_header(r.values["name"]).split())]
-        if named:
-            return named, True
-    residents = [r for r in rows if people.parse_role(r.values["role"]) == PersonRole.RESIDENT]
-    return residents or rows, False
-
-
 def receive(
     db: Session,
     google: Google,
@@ -107,10 +62,10 @@ def receive(
     idempotency_key: str,
     actor_id: uuid.UUID,
 ) -> Received:
-    """Records a package and notifies the unit. Raises AmbiguousUnit, or
+    """Records a package and notifies the unit. Raises people.AmbiguousUnit, or
     drive.RegisterUnavailable when a sheet can't be used."""
     people_table = drive.open_table(db, google, condo.id, RegisterKind.PEOPLE, lock=False)
-    block, unit = resolve_place(people_table, block, unit)
+    block, unit = people.resolve_place(people_table, block, unit)
     recipient = " ".join(recipient.split())
     description = " ".join(description.split())
     seed = (
@@ -126,7 +81,7 @@ def receive(
         db.commit()  # a retried message: report what's there, notify nobody again
         return Received(existing.values["number"], zela_id, place, 0, False, duplicate=True)
 
-    rows, found = recipients(people_table, block, unit, recipient)
+    rows, found = people.unit_contacts(people_table, block, unit, recipient)
     to_notify = {people.phone_of(r): r for r in rows}  # one message per number
     number = str(tickets.next_number(db, condo.id, "delivery"))
     now = people.local_timestamp(condo)

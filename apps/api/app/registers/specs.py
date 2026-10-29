@@ -116,10 +116,23 @@ VISITORS = RegisterSpec(
         Column("authorized_by_id", "ID de quem autorizou"),
         Column("visit_date", "Data da visita"),
         Column("valid_until", "Válido até"),
-        Column("status", "Status", ("Autorizado", "Entrou", "Cancelado", "Expirado")),
+        Column(
+            "status",
+            "Status",
+            (
+                "Autorizado",
+                "Aguardando morador",
+                "Entrou",
+                "Recusado",
+                "Cancelado",
+                "Expirado",
+            ),
+        ),
         Column("entered_at", "Entrada em"),
         Column("checked_by", "Conferido por"),
         Column("notes", "Observações"),
+        # Who at the desk announced or let the visitor in, to tell them the unit's answer.
+        Column("checked_by_id", "ID de quem conferiu"),
     ),
 )
 

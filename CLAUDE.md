@@ -55,15 +55,15 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
 - Enums are stored as VARCHAR + CHECK via `db_enum()`. Pass `name=` when a table has two columns of the
   same enum.
 - Agent capabilities are `Tool` subclasses. Sheet-backed condominiums use `app/agents/zela.py`
-  with tools in `app/agents/people_tools.py`, `occurrence_tools.py` and `delivery_tools.py`,
-  chosen by the sender's role in `zela.build_registry`; tools act only for
-  `ToolContext.person`. The legacy concierge uses
-  `app/agents/resident_tools.py` and `ToolContext.resident_id`. Tools never take actor or
-  tenant IDs from the model.
-- Consequential tools (changing people or occurrences, and later visitors) take two steps:
+  with tools in `app/agents/people_tools.py`, `occurrence_tools.py`, `delivery_tools.py` and
+  `visitor_tools.py`, chosen by the sender's role in `zela.build_registry`; tools act only
+  for `ToolContext.person`. The legacy concierge uses `app/agents/resident_tools.py` and
+  `ToolContext.resident_id`. Tools never take actor or tenant IDs from the model.
+- Consequential tools (changing people or occurrences, authorizing visitors) take two steps:
   `confirmed=false` returns a summary with a `preview_key` in `ToolResult.log`;
   `confirmed=true` must pass `was_previewed()` (ADR 0011). Reporting occurrences and
-  recording or closing deliveries are single steps (ADR 0012/0013).
+  recording or closing deliveries, and answering a gate notice, are single steps
+  (ADR 0012/0013/0014).
   Arguments use Pydantic models with `extra="forbid"`. For each new tool, add a `ScriptedLLM`
   test and an eval case.
 - System prompts (`app/agents/prompts/*.md`) must stay static (they're cached). Per-run facts
@@ -82,7 +82,8 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
   (ADR 0009/0012). Don't store model output directly as confirmed values; the suggestion goes
   in "Sugestão da IA".
 - Notifications that announce a sheet value use a guard that re-reads the sheet at send time
-  (`occurrence_status`, `delivery_waiting`). `notifications.deliver` needs `google` for those.
+  (`occurrence_status`, `delivery_waiting`, `visitor_status`). `notifications.deliver`
+  needs `google` for those.
 - Condominium records go through `services/drive.open_table()`, which loads a `Table`
   under the per-condominium sheet lock; commit after the last write. Columns are matched by
   header name (`app/registers/specs.py`). Add columns freely, but never rename a header.
@@ -109,7 +110,9 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
 
 Decided: Firebase Auth, Meta Cloud API direct, organization → many condominiums (2026-10-22).
 On 2026-10-28: WhatsApp for every role, Google Sheets as the record, a setup-only website,
-and Haiku as the default model. Still open (PDD §16): visitor-workflow integration, first
+and Haiku as the default model. On 2026-10-29: visitors are handled over WhatsApp and the
+front desk (resident authorization plus asking the unit about unannounced visitors), with
+no intercom or access-control integration for now (ADR 0014). Still open (PDD §16): first
 commercial feature, billing, and pilot customer type. Do not hard-code assumptions about
 those. Raise them with the user.
 

@@ -22,6 +22,15 @@ from app.agents.occurrence_tools import (
 )
 from app.agents.people_tools import FindPeople, GetMyRegistration, RegisterPerson, UpdatePerson
 from app.agents.tools import ToolContext, ToolRegistry
+from app.agents.visitor_tools import (
+    AnnounceVisitor,
+    AnswerVisitor,
+    AuthorizeVisitor,
+    CancelVisitor,
+    CheckVisitor,
+    GetMyVisitors,
+    RecordVisitorEntry,
+)
 from app.core.jobs import JobPublisher, get_job_publisher
 from app.integrations.google.base import Google
 from app.llm.base import LLMClient
@@ -45,10 +54,18 @@ def build_registry(role: PersonRole) -> ToolRegistry:
     registry.register(ReportOccurrence())
     registry.register(GetMyOccurrences())
     registry.register(GetMyDeliveries())
+    if role != PersonRole.STAFF:
+        registry.register(AuthorizeVisitor())
+        registry.register(GetMyVisitors())
+        registry.register(AnswerVisitor())
+        registry.register(CancelVisitor())
     if role in (PersonRole.STAFF, PersonRole.MANAGER):
         registry.register(RecordDelivery())
         registry.register(FindDeliveries())
         registry.register(CloseDelivery())
+        registry.register(CheckVisitor())
+        registry.register(AnnounceVisitor())
+        registry.register(RecordVisitorEntry())
     if role == PersonRole.MANAGER:
         registry.register(RegisterPerson())
         registry.register(FindPeople())

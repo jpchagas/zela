@@ -1,6 +1,7 @@
 """Deterministic LLM stand-ins: a scriptable one for tests, and a rule-based one so the
 WhatsApp flow can be exercised locally without an API key."""
 
+import datetime
 import itertools
 import json
 import re
@@ -71,7 +72,7 @@ class RuleBasedLLM:
 
     def start(self, *, system, context, history, tools):
         if any(t.name == "get_my_registration" for t in tools):
-            return _PeopleRuleSession(history, {t.name for t in tools})
+            return _PeopleRuleSession(history, {t.name for t in tools}, context)
         return _RuleSession(history[-1].text.lower() if history else "")
 
 
@@ -240,6 +241,7 @@ class _PeopleRuleSession:
 
     history: list[ChatMessage]
     tools: set[str]
+    context: str = ""
     outcomes: list[ToolOutcome] = field(default_factory=list)
     last_tool: str | None = None
 
@@ -248,6 +250,8 @@ class _PeopleRuleSession:
             return say(self._answer(self.outcomes[-1]))
         text = self.history[-1].text.strip() if self.history else ""
         low = text.lower()
+        if (turn := self._visitor_turn(text)) is not None:
+            return turn
         if "register_person" in self.tools:
             if (args := parse_registration(text)) is not None:
                 return self._call("register_person", **args, confirmed=False)
@@ -288,6 +292,54 @@ class _PeopleRuleSession:
             'escreva "meu cadastro".'
         )
 
+    def _today(self) -> datetime.date:
+        found = re.search(r"Data e hora local: (\d{2}/\d{2}/\d{4})", self.context)
+        if found:
+            return datetime.datetime.strptime(found.group(1), "%d/%m/%Y").date()
+        return datetime.date.today()
+
+    def _authorization(self, text: str) -> dict | None:
+        """'autorizar visita de Marcos Lima amanhã' -> authorize_visitor args."""
+        found = re.match(
+            r"autoriz\w*\s+(?:a\s+)?(?:visita\s+(?:de|do|da)\s+)?(.+?)\s+(hoje|amanh[ãa])\b",
+            text.strip(),
+            re.IGNORECASE,
+        )
+        if found is None:
+            return None
+        day = self._today() + datetime.timedelta(days=0 if found.group(2) == "hoje" else 1)
+        return {"visitor_name": found.group(1).strip()[:80], "visit_date": day.isoformat()}
+
+    def _visitor_turn(self, text: str) -> Turn | None:
+        """Residents: 'autorizar visita de X hoje', SIM/NÃO to a gate notice. Desk:
+        'visitante X', 'entrada 123456', 'anunciar X pro 302'."""
+        low = _fold(text.lower()).strip()
+        first = low.split()[0].strip("!.,") if low.split() else ""
+        if "answer_visitor" in self.tools and first in (*_YES, "nao"):
+            notice = next((m for m in reversed(self.history[:-1]) if m.role == "assistant"), None)
+            code = re.search(r"portaria.*codigo (\d{6})", _fold(notice.text)) if notice else None
+            if code:
+                return self._call("answer_visitor", code=code.group(1), allow=first != "nao")
+        if "authorize_visitor" in self.tools:
+            if (args := self._authorization(text)) is not None:
+                return self._call("authorize_visitor", **args, confirmed=False)
+            if first in _YES:
+                earlier = [m for m in self.history[:-1] if m.role == "user"]
+                args = self._authorization(earlier[-1].text) if earlier else None
+                if args is not None:
+                    return self._call("authorize_visitor", **args, confirmed=True)
+        if "check_visitor" in self.tools:
+            if low.startswith("visitante "):
+                return self._call("check_visitor", query=text.split(maxsplit=1)[1][:80])
+            if (entry := re.match(r"entrada\s+(\d{6})", low)) is not None:
+                return self._call("record_visitor_entry", code=entry.group(1))
+            found = re.match(r"anunciar\s+(.+?)\s+(?:pro|pra|para o)\s+(\w+)", text, re.I)
+            if found is not None:
+                return self._call(
+                    "announce_visitor", visitor_name=found.group(1), unit=found.group(2)
+                )
+        return None
+
     def _delivery_turn(self, text: str) -> Turn | None:
         """'chegou encomenda pro 302 bloco B', 'encomenda #3 retirada pela Ana',
         'encomendas pendentes', 'tem encomenda pra mim?'"""
@@ -324,6 +376,32 @@ class _PeopleRuleSession:
         if outcome.is_error:
             return f"Não consegui: {outcome.content}{suffix}"
         data = json.loads(outcome.content)
+        if self.last_tool == "authorize_visitor":
+            if data.get("needs_confirmation"):
+                v = data["summary"]
+                return (
+                    f"Confere? {v['visitor']}, {v['place']}, {v['visit_date']} a "
+                    f"{v['valid_until']}. Responda SIM para autorizar.{suffix}"
+                )
+            return f"Autorizado. Código {data['code']}: o visitante informa na portaria.{suffix}"
+        if self.last_tool in ("check_visitor", "get_my_visitors"):
+            items = [
+                f"{v['code']} {v['visitor']} ({v['place']}, {v['status']})"
+                for v in data["visitors"]
+            ]
+            return ("; ".join(items) or "Nenhum visitante encontrado.") + suffix
+        if self.last_tool == "record_visitor_entry":
+            return f"Entrada registrada: {data['visitor']['visitor']}.{suffix}"
+        if self.last_tool == "announce_visitor":
+            return (
+                f"Perguntei à unidade {data['place']} ({data['people_asked']} pessoa(s)). A "
+                f"resposta chega aqui. Código {data['code']}.{suffix}"
+            )
+        if self.last_tool == "answer_visitor":
+            answer = "pode entrar" if data["allowed"] else "não vai entrar"
+            return f"Certo, avisei a portaria que {data['visitor']} {answer}.{suffix}"
+        if self.last_tool == "cancel_visitor":
+            return f"Autorização de {data['visitor']} cancelada.{suffix}"
         if self.last_tool == "record_delivery":
             told = data["people_notified"]
             return (

@@ -80,8 +80,10 @@ def load_history(db: Session, conversation: Conversation) -> list[ChatMessage]:
     for message in reversed(recent):
         role, prefix = _ROLE_BY_KIND[message.kind]
         history.append(ChatMessage(role=role, text=prefix + message.body))
-    while history and history[0].role != "user":
-        history.pop(0)  # the provider requires the first turn to be the user's
+    if history and history[0].role != "user":
+        # The provider requires the first turn to be the user's. Keep the notices that
+        # opened the conversation: a reply like "pode liberar" answers one of them.
+        history.insert(0, ChatMessage(role="user", text="[Início da conversa]"))
     return history
 
 

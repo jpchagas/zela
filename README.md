@@ -63,6 +63,12 @@ say +5511933330001 "chegou encomenda pro 204 bloco B"   # Juliana is told
 say +5511912345678 "tem encomenda pra mim?"
 say +5511933330001 "encomenda #1 retirada pela Juliana"
 say +5511933330001 "encomendas pendentes"
+say +5511912345678 "autorizar visita de Marcos Lima hoje"
+say +5511912345678 "sim"                     # returns a 6-digit code
+say +5511933330001 "visitante Marcos"
+say +5511933330001 "entrada <código>"         # Juliana is told Marcos arrived
+say +5511933330001 "anunciar Paulo pro 204"   # Juliana is asked on WhatsApp
+say +5511912345678 "sim"                     # the desk is told she let him in
 ```
 
 With Claude (`LLM_PROVIDER=anthropic`), write naturally.
@@ -122,7 +128,11 @@ make eval        # opt-in AI evals against the real model (costs money)
 - Phase 4, done: staff and the manager record packages by WhatsApp in Encomendas; the
   unit's residents (or the named recipient) are told; residents ask what's waiting for
   them; staff mark pickups and returns (ADR 0013).
-- Next: Phase 5, visitors. Then, optionally, questions about the condominium's rules.
+- Phase 5, done: residents authorize visitors (two steps) and get a code; the desk checks
+  visitors and records entries, and whoever authorized is told; for unannounced visitors
+  the desk asks the unit on WhatsApp and gets the answer back (ADR 0014).
+- Next, optionally: questions about the condominium's rules, answered from documents in
+  Drive (Phase 6).
 
 The Milestone 1–3 build below is still in the code and is being replaced:
 
