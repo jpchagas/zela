@@ -16,6 +16,9 @@ infra/     Local infrastructure helpers
 
 ## Quickstart
 
+To try the whole product in stages (local, then real AI, Drive and WhatsApp), follow
+[docs/testing-guide.md](docs/testing-guide.md).
+
 Requires Docker, Python 3.10+ and Node 22.
 
 ```bash

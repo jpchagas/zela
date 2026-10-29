@@ -536,3 +536,23 @@ def test_a_preview_in_the_current_run_does_not_count(db, condo):
     )
     assert not was_previewed(db, ctx, "register_person", "k")
     assert was_previewed(db, replace(ctx, agent_run_id=uuid.uuid4()), "register_person", "k")
+
+
+@pytest.mark.parametrize(
+    ("typed", "whatsapp_from"),
+    [
+        ("(11) 98765-4321", "551187654321"),  # WhatsApp reports the old 8-digit form
+        ("11 8765-4321", "5511987654321"),  # the sheet has the old form
+    ],
+)
+def test_brazilian_mobiles_match_with_or_without_the_extra_9(
+    db, condo, people_tab, sender, google, typed, whatsapp_from
+):
+    add_row(people_tab, name="Ana Souza", whatsapp=typed, unit="302", role="Moradora")
+    llm = ScriptedLLM([call("get_my_registration"), _say_last_outcome])
+    deliver(
+        db, condo, "meu cadastro", sender=sender, llm=llm, google=google, from_e164=whatsapp_from
+    )
+    assert json.loads(llm.sessions[0].outcomes[0].content)["name"] == "Ana Souza"
+    conversation = db.scalar(select(Conversation))
+    assert conversation.contact_e164 == ANA

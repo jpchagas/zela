@@ -31,6 +31,7 @@ from app.services import (
     rules,
 )
 from app.services.enrollment import EnrollmentResult
+from app.services.phones import canonical_e164
 
 logger = logging.getLogger(__name__)
 
@@ -164,7 +165,7 @@ def _handle_message(
     )
     if condominium is None:
         raise UnroutableEvent("No condominium uses this WhatsApp phone_number_id")
-    contact = "+" + "".join(ch for ch in str(message.get("from", "")) if ch.isdigit())
+    contact = canonical_e164(str(message.get("from", "")))
     if len(contact) < 9:
         raise UnroutableEvent("Missing or invalid sender number")
 
