@@ -6,13 +6,14 @@ from app.models import (
     Building,
     Condominium,
     Document,
+    Organization,
     OrganizationMembership,
     Resident,
     StaffMembership,
     Unit,
     User,
 )
-from app.models.enums import ActorType, DocumentStatus, ResidentStatus
+from app.models.enums import ActorType, DocumentStatus, OrgRole, ResidentStatus
 from app.rbac.context import CondoContext, OrgContext, resolve_condo_role
 from app.rbac.permissions import Role
 from app.schemas.tenancy import CondominiumCreate, CondominiumSummary, CondominiumUpdate
@@ -43,6 +44,22 @@ def list_accessible(db: Session, user: User) -> list[tuple[Condominium, Role]]:
         if role is not None:
             result.append((condo, role))
     return result
+
+
+def list_organizations(db: Session, user: User) -> list[tuple[Organization, OrgRole]]:
+    """Organizations the user may add condominiums to (owners and admins)."""
+    return [
+        (org, role)
+        for org, role in db.execute(
+            select(Organization, OrganizationMembership.role)
+            .join(OrganizationMembership, OrganizationMembership.organization_id == Organization.id)
+            .where(
+                OrganizationMembership.user_id == user.id,
+                OrganizationMembership.revoked_at.is_(None),
+            )
+            .order_by(Organization.name)
+        )
+    ]
 
 
 def create(db: Session, ctx: OrgContext, data: CondominiumCreate) -> Condominium:

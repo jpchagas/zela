@@ -13,6 +13,8 @@ export interface Me {
     condominium_name: string;
     role: Role;
   }[];
+  // Where the user can add condominiums; empty for managers and staff.
+  organizations: { id: string; name: string; role: "owner" | "admin" }[];
 }
 
 export interface Condominium {

@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Menu, Settings, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, LogOut, Menu, Settings, X, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -75,7 +75,14 @@ function Sidebar({ onNavigate, onClose }: { onNavigate: () => void; onClose: () 
         </button>
       </div>
 
-      <div className="px-3 pb-3">
+      <div className="flex flex-col gap-2 px-3 pb-3">
+        <Link
+          href="/"
+          onClick={onNavigate}
+          className="flex items-center gap-2 px-1 text-xs text-white/60 hover:text-white"
+        >
+          <ArrowLeft className="size-3.5" /> Seus condomínios
+        </Link>
         <label htmlFor="condo-switcher" className="sr-only">
           Condomínio
         </label>

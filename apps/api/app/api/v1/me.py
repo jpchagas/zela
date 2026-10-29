@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import get_current_user
 from app.db.session import get_db
 from app.models import User
-from app.schemas.tenancy import MembershipSummary, MeOut
+from app.schemas.tenancy import MembershipSummary, MeOut, OrganizationSummary
 from app.services import condominiums
 
 router = APIRouter(tags=["me"])
@@ -25,5 +25,9 @@ def get_me(user: User = Depends(get_current_user), db: Session = Depends(get_db)
                 role=role,
             )
             for c, role in condominiums.list_accessible(db, user)
+        ],
+        organizations=[
+            OrganizationSummary(id=org.id, name=org.name, role=role)
+            for org, role in condominiums.list_organizations(db, user)
         ],
     )

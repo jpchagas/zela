@@ -3,6 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, EmailStr, Field
 
+from app.models.enums import OrgRole
 from app.rbac.permissions import Role
 from app.schemas.common import ORMModel
 
@@ -100,12 +101,20 @@ class MembershipSummary(BaseModel):
     role: Role
 
 
+class OrganizationSummary(BaseModel):
+    id: uuid.UUID
+    name: str
+    role: OrgRole
+
+
 class MeOut(BaseModel):
     id: uuid.UUID
     email: str
     display_name: str | None
     is_platform_admin: bool
     condominiums: list[MembershipSummary]
+    # Where the user can add condominiums; empty for managers and staff.
+    organizations: list[OrganizationSummary]
 
 
 class StaffInvite(BaseModel):

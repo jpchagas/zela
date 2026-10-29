@@ -29,6 +29,21 @@ def test_unknown_identity_is_not_provisioned(client, world):
     assert response.status_code == 403
 
 
+def test_me_lists_every_condominium_and_where_to_add_more(client, world):
+    owner = client.get("/v1/me", headers=auth("owner1@example.com")).json()
+    assert [c["condominium_name"] for c in owner["condominiums"]] == [
+        "Edifício Bela Vista",
+        "Residencial Aurora",
+    ]
+    assert owner["organizations"] == [
+        {"id": str(world.org1.id), "name": "Administradora Um", "role": "owner"}
+    ]
+
+    manager = client.get("/v1/me", headers=auth("manager.a@example.com")).json()
+    assert [c["condominium_name"] for c in manager["condominiums"]] == ["Residencial Aurora"]
+    assert manager["organizations"] == []
+
+
 def test_invited_user_is_linked_on_first_sign_in(client, db, world):
     invited = make_user(db, "Invited@Example.com", linked=False)
     db.add(
