@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Changing direction (ADR 0010).** Zela is a low-cost,
 WhatsApp-first product. Everyone uses WhatsApp: manager, owners, residents and staff. The
 condominium's records are Google Sheets in the manager's Drive. The website is setup only,
-for the manager: connect WhatsApp, connect Drive. Postgres keeps only setup and plumbing data.
+for the manager: list their condominiums, add one, connect its WhatsApp and Drive. Postgres
+keeps only setup and plumbing data.
 
 The code below is still the Milestone 1–3 build: a dashboard, with Postgres as the record. It
 is being reworked in phases. New code follows ADR 0010. Don't add features to the dashboard
@@ -21,8 +22,9 @@ work screens or to the Postgres business tables. Read `README.md` for the quicks
   `FakeGoogle`), `app/registers` (sheet specs, `Table`), `app/integrations/storage.py` (local
   disk / GCS), `app/workers` (inbound job, sweeper), `app/llm` (provider-neutral interface,
   Claude adapter, scripted stand-ins), `app/agents` (concierge, tools, prompts).
-- `apps/web` is now a single setup page (`app/c/[condoId]/page.tsx`): WhatsApp, Google Drive,
-  on-call contacts.
+- `apps/web` is now setup only: `app/page.tsx` lists the user's condominiums and lets
+  organization owners and admins add one; `app/c/[condoId]/page.tsx` is one condominium's
+  setup (WhatsApp, Google Drive, manager's number, on-call contacts).
 - `apps/web`: Next.js App Router, Tailwind v4, shadcn/ui. UI copy is pt-BR. Brand tokens are in
   `src/app/globals.css`.
 
@@ -115,7 +117,9 @@ Decided: Firebase Auth, Meta Cloud API direct, organization → many condominium
 On 2026-10-28: WhatsApp for every role, Google Sheets as the record, a setup-only website,
 and Haiku as the default model. On 2026-10-29: visitors are handled over WhatsApp and the
 front desk (resident authorization plus asking the unit about unannounced visitors), with
-no intercom or access-control integration for now (ADR 0014). Still open (PDD §16): first
+no intercom or access-control integration for now (ADR 0014). Also on 2026-10-29: a síndico
+can manage many condominiums, each with its own Zela WhatsApp number (inbound messages are
+routed by that number), so the síndico has one chat per condominium. Still open (PDD §16): first
 commercial feature, billing, and pilot customer type. Do not hard-code assumptions about
 those. Raise them with the user.
 

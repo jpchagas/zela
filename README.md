@@ -9,7 +9,7 @@ Drive, and the website is only for setup (connecting WhatsApp and Drive). See
 
 ```
 apps/api   FastAPI · SQLAlchemy · Alembic · Postgres   (webhooks, agent tools, Google Sheets registers)
-apps/web   Next.js · Tailwind · shadcn/ui              (setup page for the manager, pt-BR)
+apps/web   Next.js · Tailwind · shadcn/ui              (setup site for the manager, pt-BR)
 docs/adr   Architecture decision records
 infra/     Local infrastructure helpers
 ```
@@ -143,6 +143,12 @@ make eval        # opt-in AI evals against the real model (costs money)
 - Phase 6, done: the manager sends the regulations (PDF or .txt) in the chat; Zela saves
   them to Drive and indexes them; anyone asks about the rules and gets answers that cite
   the document (ADR 0015).
+- Several condominiums per síndico, done: the setup site lists every condominium the user
+  can open, and organization owners and admins add new ones. Each condominium has its own
+  Zela WhatsApp number, sheets and setup.
+- Next: deployment. Not deployed yet. Production still needs Pub/Sub push delivery for
+  background jobs (today they run in the API process), a scheduled sweeper, a container
+  for the web app, and the WhatsApp templates approved by Meta.
 
 The Milestone 1–3 build below is still in the code and is being replaced:
 
