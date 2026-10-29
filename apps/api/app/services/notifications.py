@@ -6,7 +6,7 @@ the database, so a notification never announces a state that is no longer true.
 """
 
 import uuid
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
@@ -18,6 +18,9 @@ from app.integrations.whatsapp.templates import TEMPLATES
 from app.models import Condominium, MaintenanceTicket, NotificationEvent
 from app.models.enums import DeliveryStatus, MessageKind
 from app.services import conversations
+
+if TYPE_CHECKING:
+    from app.integrations.google.base import Google
 
 NOTIFICATION_TOPIC = "notification-send"
 
@@ -63,14 +66,21 @@ def enqueue(
     return notification_id
 
 
-def deliver(db: Session, notification_id: uuid.UUID, sender: WhatsAppSender) -> None:
+def deliver(
+    db: Session,
+    notification_id: uuid.UUID,
+    sender: WhatsAppSender,
+    google: "Google | None" = None,
+) -> None:
+    """`google` is needed for notifications guarded on a sheet (occurrence updates). If
+    that sheet can't be read, this raises and the notification stays pending for a retry."""
     notification = db.get(NotificationEvent, notification_id)
     if notification is None or notification.status != DeliveryStatus.PENDING:
         return
     notification.attempts += 1
     db.commit()
 
-    if not _guard_holds(db, notification):
+    if not _guard_holds(db, notification, google):
         notification.status = DeliveryStatus.SKIPPED
         notification.error = "superseded: the record changed before this was sent"
         db.commit()
@@ -99,8 +109,20 @@ def deliver(db: Session, notification_id: uuid.UUID, sender: WhatsAppSender) -> 
     db.commit()
 
 
-def _guard_holds(db: Session, notification: NotificationEvent) -> bool:
+def _guard_holds(db: Session, notification: NotificationEvent, google: "Google | None") -> bool:
     guard = notification.data.get("guard") or {}
+    occurrence = guard.get("occurrence_status")
+    if occurrence is not None:
+        from app.integrations.google.factory import get_google
+        from app.services import occurrences
+
+        return occurrences.status_still(
+            db,
+            google or get_google(),
+            notification.condominium_id,
+            occurrence["number"],
+            occurrence["status"],
+        )
     pending_phone = guard.get("manager_phone_pending")
     if pending_phone is not None:
         condo = db.get(Condominium, notification.condominium_id)

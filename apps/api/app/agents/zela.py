@@ -8,13 +8,19 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
 from app.agents.concierge import run_agent
-from app.agents.people_tools import build_registry
-from app.agents.tools import ToolContext
+from app.agents.occurrence_tools import (
+    FindOccurrences,
+    GetMyOccurrences,
+    ReportOccurrence,
+    UpdateOccurrence,
+)
+from app.agents.people_tools import FindPeople, GetMyRegistration, RegisterPerson, UpdatePerson
+from app.agents.tools import ToolContext, ToolRegistry
 from app.core.jobs import JobPublisher, get_job_publisher
 from app.integrations.google.base import Google
 from app.llm.base import LLMClient
 from app.models import AgentRun, Condominium, Conversation, Message
-from app.services.people import ROLE_LABEL, Person
+from app.services.people import ROLE_LABEL, Person, PersonRole
 
 # Static so the provider can cache it; per-run facts go in render_context.
 SYSTEM_PROMPT = (Path(__file__).parent / "prompts" / "zela_system.md").read_text(encoding="utf-8")
@@ -23,6 +29,22 @@ GAVE_UP_REPLY = (
     "Desculpe, não consegui concluir seu pedido agora. Pode tentar de novo com outras "
     "palavras? Se for urgente, fale direto com o síndico."
 )
+
+
+def build_registry(role: PersonRole) -> ToolRegistry:
+    """The sender's tools, decided by the role the backend identified (ADR 0011).
+    Order is fixed per role, which keeps each role's cached prompt prefix stable."""
+    registry = ToolRegistry()
+    registry.register(GetMyRegistration())
+    registry.register(ReportOccurrence())
+    registry.register(GetMyOccurrences())
+    if role == PersonRole.MANAGER:
+        registry.register(RegisterPerson())
+        registry.register(FindPeople())
+        registry.register(UpdatePerson())
+        registry.register(FindOccurrences())
+        registry.register(UpdateOccurrence())
+    return registry
 
 
 def render_context(condominium: Condominium, person: Person, now: datetime) -> str:

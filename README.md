@@ -53,6 +53,10 @@ say +5511955550000 "sim"     # confirms the manager number
 say +5511955550000 "cadastrar Juliana Prado, apto 204, bloco B, 11 91234-5678, moradora"
 say +5511955550000 "sim"     # confirms the summary; the row appears in Pessoas
 say +5511912345678 "meu cadastro"
+say +5511912345678 "o portão da garagem quebrou"      # occurrence #1
+say +5511912345678 "tem fumaça saindo do quadro de luz" # emergency: on-call + manager alerted
+say +5511912345678 "minhas ocorrências"
+say +5511955550000 "ocorrencias abertas"
 ```
 
 With Claude (`LLM_PROVIDER=anthropic`), write naturally.
@@ -105,8 +109,12 @@ make eval        # opt-in AI evals against the real model (costs money)
   answering SIM; senders are recognized from the Pessoas sheet; the manager registers,
   finds, corrects and deactivates people by WhatsApp, always confirming a summary first
   (ADR 0011). Registered people get a welcome message.
-- Next: Phase 3, occurrences (complaints and maintenance). Then deliveries, visitors, and
-  optionally questions about the condominium's rules.
+- Phase 3, done: anyone registered reports problems, complaints and suggestions, which
+  become numbered rows in Ocorrências; emergencies alert the on-call contacts and the
+  manager; people follow their own occurrences; the manager lists and updates them (two
+  steps) and the reporter is told (ADR 0012).
+- Next: Phase 4, deliveries (Encomendas). Then visitors, and optionally questions about
+  the condominium's rules.
 
 The Milestone 1–3 build below is still in the code and is being replaced:
 

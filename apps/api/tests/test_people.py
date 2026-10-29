@@ -159,7 +159,11 @@ def test_a_resident_row_identifies_the_sender_with_their_own_tools(
 
     session = llm.sessions[0]
     assert session.system == zela.SYSTEM_PROMPT
-    assert [t.name for t in session.tools] == ["get_my_registration"]
+    assert [t.name for t in session.tools] == [
+        "get_my_registration",
+        "report_occurrence",
+        "get_my_occurrences",
+    ]
     assert "Papel: Morador" in session.context and "Ana" in session.context
     data = json.loads(session.outcomes[0].content)
     assert data == {
@@ -202,9 +206,13 @@ def test_the_broadest_role_applies_and_the_manager_needs_a_confirmed_number(
     assert "Papel: Síndico" in llm.sessions[0].context
     assert [t.name for t in llm.sessions[0].tools] == [
         "get_my_registration",
+        "report_occurrence",
+        "get_my_occurrences",
         "register_person",
         "find_people",
         "update_person",
+        "find_occurrences",
+        "update_occurrence",
     ]
 
 

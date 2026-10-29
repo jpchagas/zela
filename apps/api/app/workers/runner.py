@@ -37,7 +37,9 @@ def run_document_job(payload: dict[str, str]) -> None:
 
 def run_notification_job(payload: dict[str, str]) -> None:
     with SessionLocal() as db:
-        notifications.deliver(db, uuid.UUID(payload["notification_id"]), get_whatsapp_sender())
+        notifications.deliver(
+            db, uuid.UUID(payload["notification_id"]), get_whatsapp_sender(), get_google()
+        )
 
 
 def run_drive_setup_job(payload: dict[str, str]) -> None:

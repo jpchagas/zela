@@ -3,8 +3,8 @@
 WhatsApp only allows free-form messages within 24 hours of the contact's last message.
 Outside that window, Zela sends **approved templates**. Zela uses them for:
 
-- ticket updates to residents who haven't written recently;
-- emergency alerts to on-call contacts;
+- ticket and occurrence updates to people who haven't written recently;
+- emergency alerts to on-call contacts and the manager;
 - the manager's number confirmation;
 - welcoming people the manager registers.
 
@@ -51,6 +51,26 @@ Olá, {{1}}! Você foi cadastrado(a) no Zela, o atendimento do {{2}} pelo WhatsA
 ```
 
 Samples: `Maria` · `Residencial Aurora`
+
+### `zela_occurrence_update` (Utility)
+
+```
+Atualização da sua ocorrência #{{1}} ({{2}}): {{3}}
+```
+
+Samples: `12` · `Portão da garagem não abre` · `foi marcada como resolvida.`
+
+### `zela_occurrence_emergency` (Utility)
+
+```
+🚨 Emergência no {{1}}: {{2}}. Local: {{3}}. Ocorrência #{{4}}, registrada às {{5}} por {{6}}. A pessoa foi orientada a acionar o serviço de emergência (193, 192 ou 190).
+```
+
+Samples: `Residencial Aurora` · `Cheiro de gás no 3º andar` · `Corredor do 3º andar` ·
+`42` · `21:15` · `Ana (apto 302)`
+
+This replaces `zela_emergency_alert` for condominiums on Google Sheets, which have no dashboard
+to point to.
 
 ## Changing a template
 

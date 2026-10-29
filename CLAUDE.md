@@ -55,8 +55,8 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
 - Enums are stored as VARCHAR + CHECK via `db_enum()`. Pass `name=` when a table has two columns of the
   same enum.
 - Agent capabilities are `Tool` subclasses. Sheet-backed condominiums use `app/agents/zela.py`
-  with tools in `app/agents/people_tools.py`, chosen by the sender's role
-  (`build_registry`); tools act only for `ToolContext.person`. The legacy concierge uses
+  with tools in `app/agents/people_tools.py` and `occurrence_tools.py`, chosen by the sender's
+  role in `zela.build_registry`; tools act only for `ToolContext.person`. The legacy concierge uses
   `app/agents/resident_tools.py` and `ToolContext.resident_id`. Tools never take actor or
   tenant IDs from the model.
 - Consequential tools (changing people, and later occurrences or visitors) take two steps:
@@ -76,8 +76,11 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
 - Background work goes through `JobPublisher` topics handled in `app/workers/runner.py`
   (`whatsapp-inbound`, `document-index`, `notification-send`). Tests use `JOBS_MODE=log` and the
   `publisher` fixture, and run jobs explicitly.
-- Ticket category and priority come from `services/tickets.classify()` (ADR 0009). Don't store
-  model output directly as confirmed values.
+- Ticket and occurrence category and priority come from `services/tickets.classify()`
+  (ADR 0009/0012). Don't store model output directly as confirmed values; the suggestion goes
+  in "Sugestão da IA".
+- Notifications that announce a sheet value use a guard that re-reads the sheet at send time
+  (`occurrence_status`). `notifications.deliver` needs `google` for those.
 - Condominium records go through `services/drive.open_table()`, which loads a `Table`
   under the per-condominium sheet lock; commit after the last write. Columns are matched by
   header name (`app/registers/specs.py`). Add columns freely, but never rename a header.

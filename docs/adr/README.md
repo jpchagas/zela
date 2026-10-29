@@ -14,6 +14,7 @@ consequences. Never edit an accepted ADR's decision; supersede it with a new one
 | [0006](0006-document-retrieval.md) | Postgres full-text search first, vectors later | Deferred by 0010 |
 | [0007](0007-llm-provider-layer.md) | Provider-neutral LLM layer, Claude as the first adapter | Accepted |
 | [0008](0008-resident-enrollment.md) | WhatsApp enrollment with a one-time code bound to the number | Superseded by 0010/0011 |
-| [0009](0009-tickets-and-emergencies.md) | Deterministic ticket classification and the emergency procedure | Storage superseded by 0010 |
+| [0009](0009-tickets-and-emergencies.md) | Deterministic ticket classification and the emergency procedure | Storage superseded by 0010/0012 |
 | [0010](0010-whatsapp-first-sheets-as-records.md) | WhatsApp for every role, Google Sheets as the record, setup-only website | Accepted |
 | [0011](0011-people-and-roles-over-whatsapp.md) | People and roles from the Pessoas sheet, confirmed manager number, two-step changes | Accepted |
+| [0012](0012-occurrences-in-sheets.md) | Occurrences in the Ocorrências sheet, emergency alerts, sheet-guarded updates | Accepted |

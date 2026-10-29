@@ -74,6 +74,33 @@ PERSON_WELCOME = Template(
     params=("first_name", "condominium"),
 )
 
+OCCURRENCE_UPDATE = Template(
+    name="zela_occurrence_update",
+    language="pt_BR",
+    category="UTILITY",
+    body="Atualização da sua ocorrência #{{1}} ({{2}}): {{3}}",
+    params=("number", "summary", "update"),
+)
+
+OCCURRENCE_EMERGENCY = Template(
+    name="zela_occurrence_emergency",
+    language="pt_BR",
+    category="UTILITY",
+    body=(
+        "🚨 Emergência no {{1}}: {{2}}. Local: {{3}}. Ocorrência #{{4}}, registrada às {{5}} "
+        "por {{6}}. A pessoa foi orientada a acionar o serviço de emergência (193, 192 ou 190)."
+    ),
+    params=("condominium", "summary", "location", "number", "time", "reporter"),
+)
+
 TEMPLATES = {
-    t.name: t for t in (TICKET_UPDATE, EMERGENCY_ALERT, MANAGER_CONFIRMATION, PERSON_WELCOME)
+    t.name: t
+    for t in (
+        TICKET_UPDATE,
+        EMERGENCY_ALERT,
+        MANAGER_CONFIRMATION,
+        PERSON_WELCOME,
+        OCCURRENCE_UPDATE,
+        OCCURRENCE_EMERGENCY,
+    )
 }

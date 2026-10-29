@@ -202,6 +202,14 @@ _ROLE_WORDS = (
 _YES = ("sim", "confirmo", "pode", "ok", "isso")
 
 
+def _fold(text: str) -> str:
+    import unicodedata
+
+    return "".join(
+        ch for ch in unicodedata.normalize("NFKD", text) if not unicodedata.combining(ch)
+    )
+
+
 def parse_registration(text: str) -> dict | None:
     """'cadastrar Maria Souza, apto 302, bloco B, 11 98765-4321, moradora' -> tool args."""
     head, _, rest = text.partition(" ")
@@ -249,6 +257,21 @@ class _PeopleRuleSession:
                     return self._call("register_person", **args, confirmed=True)
             if low.startswith(("buscar ", "procurar ", "quem é ", "quem mora")):
                 return self._call("find_people", query=text.split(maxsplit=1)[-1][:80])
+        if "find_occurrences" in self.tools and "ocorrencias abertas" in _fold(low):
+            return self._call("find_occurrences", only_open=True, query="")
+        if "minhas ocorr" in low or "minha ocorr" in low:
+            return self._call("get_my_occurrences")
+        emergency = any(w in low for w in _EMERGENCY)
+        if emergency or any(w in low for w in _PROBLEM):
+            return self._call(
+                "report_occurrence",
+                type="manutencao",
+                description=text[:1000],
+                location=text[:150],
+                in_own_unit=False,
+                category="other",
+                priority="emergency" if emergency else "normal",
+            )
         if any(w in low for w in ("cadastro", "unidade", "apartamento")):
             return self._call("get_my_registration")
         if "register_person" in self.tools:
@@ -285,6 +308,17 @@ class _PeopleRuleSession:
                 f"Cadastrado(a) ({data['id']}). A pessoa vai receber uma mensagem de "
                 f"boas-vindas.{suffix}"
             )
+        if self.last_tool == "report_occurrence":
+            text = f"Ocorrência {data['reference']} registrada ({data['priority']})."
+            if data["emergency_procedure_started"]:
+                text = "Ligue para 193 se houver risco. " + text + " O plantão foi alertado."
+            return text + suffix
+        if self.last_tool in ("get_my_occurrences", "find_occurrences"):
+            items = [
+                f"#{o['number']} {o['description'][:40]}: {o['status']}"
+                for o in data["occurrences"]
+            ]
+            return ("; ".join(items) or "Nenhuma ocorrência.") + suffix
         if self.last_tool == "find_people":
             found = [
                 f"{p['name']} ({p['role']}, {p['unit'] or '-'}, {p['id']})" for p in data["people"]

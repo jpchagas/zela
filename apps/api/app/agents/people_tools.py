@@ -15,7 +15,6 @@ from app.agents.tools import (
     Tool,
     ToolContext,
     ToolError,
-    ToolRegistry,
     ToolResult,
     preview_key,
     was_previewed,
@@ -341,13 +340,3 @@ class UpdatePerson(Tool[UpdateArgs]):
         _audit(db, ctx, "person.updated", zela_id=args.person_id, fields=sorted(changes))
         db.commit()
         return ToolResult(ok=True, data={"updated": True, "person": _row_out(updated)})
-
-
-def build_registry(role: PersonRole) -> ToolRegistry:
-    registry = ToolRegistry()
-    registry.register(GetMyRegistration())
-    if role == PersonRole.MANAGER:
-        registry.register(RegisterPerson())
-        registry.register(FindPeople())
-        registry.register(UpdatePerson())
-    return registry

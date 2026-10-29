@@ -53,6 +53,10 @@ UNKNOWN_PERSON = (
     "Olá! Este é o atendimento do {condo} pelo WhatsApp. Não encontrei este número no "
     "cadastro do condomínio. Peça ao síndico para cadastrar você."
 )
+ON_CALL_ACK_SHEETS = (
+    "Mensagem recebida. Este número está no plantão de emergência do {condo}. As "
+    "ocorrências ficam na planilha Ocorrências, no Google Drive do síndico."
+)
 SHEETS_UNAVAILABLE = (
     "Estou sem acesso ao cadastro do condomínio agora e não consigo atender. Tente de novo "
     "mais tarde ou fale com o síndico."
@@ -234,7 +238,7 @@ def _decide_sheet_reply(
         return system, SHEETS_UNAVAILABLE
     if person is None:
         if emergency_contacts.is_emergency_contact(db, condominium.id, contact):
-            return system, ON_CALL_ACK.format(condo=condominium.name)
+            return system, ON_CALL_ACK_SHEETS.format(condo=condominium.name)
         # Answered without the model: unknown numbers cost nothing and learn nothing.
         return system, UNKNOWN_PERSON.format(condo=condominium.name)
     if text is None:
