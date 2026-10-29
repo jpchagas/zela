@@ -15,13 +15,21 @@ from sqlalchemy.orm import Session
 
 from app.agents.concierge import run_concierge
 from app.agents.zela import run_zela
-from app.core.jobs import JobPublisher
+from app.core.jobs import JobPublisher, get_job_publisher
 from app.integrations.google.base import Google
 from app.integrations.whatsapp.sender import WhatsAppSender
 from app.llm.base import LLMClient
 from app.models import Condominium, Conversation, Message, Resident, WebhookEvent
 from app.models.enums import ConversationStatus, JobStatus, MessageKind, ResidentStatus
-from app.services import conversations, drive, emergency_contacts, enrollment, manager_phone, people
+from app.services import (
+    conversations,
+    drive,
+    emergency_contacts,
+    enrollment,
+    manager_phone,
+    people,
+    rules,
+)
 from app.services.enrollment import EnrollmentResult
 
 logger = logging.getLogger(__name__)
@@ -163,14 +171,27 @@ def _handle_message(
     with _conversation_lock(db, condominium.id, contact):
         conversation = conversations.open_conversation(db, condominium.id, contact)
         text = (message.get("text") or {}).get("body") if message.get("type") == "text" else None
+        if text is not None:
+            body = text
+        elif message.get("type") == "document":
+            body = f"[documento: {(message.get('document') or {}).get('filename', '')}]"
+        else:
+            body = f"[{message.get('type', 'desconhecido')}]"
         inbound = conversations.record_inbound(
-            db,
-            conversation,
-            provider_message_id=message["id"],
-            body=text if text is not None else f"[{message.get('type', 'desconhecido')}]",
+            db, conversation, provider_message_id=message["id"], body=body
         )
         kind, reply = _decide_reply(
-            db, llm, publisher, google, condominium, conversation, inbound, contact, text
+            db,
+            llm,
+            publisher,
+            google,
+            condominium,
+            conversation,
+            inbound,
+            contact,
+            text,
+            sender=sender,
+            message=message,
         )
         if reply:
             conversations.send_outbound(
@@ -194,6 +215,9 @@ def _decide_reply(
     inbound: Message,
     contact: str,
     text: str | None,
+    *,
+    sender: WhatsAppSender,
+    message: dict,
 ) -> tuple[MessageKind, str | None]:
     system = MessageKind.SYSTEM_REPLY
     sheets = drive.uses_sheets(db, condominium.id)
@@ -204,7 +228,17 @@ def _decide_reply(
         return system, confirmation
     if sheets:
         return _decide_sheet_reply(
-            db, llm, publisher, google, condominium, conversation, inbound, contact, text
+            db,
+            llm,
+            publisher,
+            google,
+            condominium,
+            conversation,
+            inbound,
+            contact,
+            text,
+            sender=sender,
+            message=message,
         )
     return _decide_legacy_reply(
         db, llm, publisher, condominium, conversation, inbound, contact, text
@@ -221,6 +255,9 @@ def _decide_sheet_reply(
     inbound: Message,
     contact: str,
     text: str | None,
+    *,
+    sender: WhatsAppSender,
+    message: dict,
 ) -> tuple[MessageKind, str | None]:
     system = MessageKind.SYSTEM_REPLY
     if google is None:
@@ -241,6 +278,17 @@ def _decide_sheet_reply(
             return system, ON_CALL_ACK_SHEETS.format(condo=condominium.name)
         # Answered without the model: unknown numbers cost nothing and learn nothing.
         return system, UNKNOWN_PERSON.format(condo=condominium.name)
+    if message.get("type") == "document":
+        # Handled without the model: saved to Drive and indexed (ADR 0015).
+        return system, rules.receive(
+            db,
+            google,
+            sender,
+            publisher or get_job_publisher(),
+            condo=condominium,
+            person=person,
+            message=message,
+        )
     if text is None:
         return system, TEXT_ONLY
     run = run_zela(

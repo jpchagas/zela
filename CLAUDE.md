@@ -55,9 +55,9 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
 - Enums are stored as VARCHAR + CHECK via `db_enum()`. Pass `name=` when a table has two columns of the
   same enum.
 - Agent capabilities are `Tool` subclasses. Sheet-backed condominiums use `app/agents/zela.py`
-  with tools in `app/agents/people_tools.py`, `occurrence_tools.py`, `delivery_tools.py` and
-  `visitor_tools.py`, chosen by the sender's role in `zela.build_registry`; tools act only
-  for `ToolContext.person`. The legacy concierge uses `app/agents/resident_tools.py` and
+  with tools in `app/agents/people_tools.py`, `occurrence_tools.py`, `delivery_tools.py`,
+  `visitor_tools.py` and `rule_tools.py`, chosen by the sender's role in
+  `zela.build_registry`; tools act only for `ToolContext.person`. The legacy concierge uses `app/agents/resident_tools.py` and
   `ToolContext.resident_id`. Tools never take actor or tenant IDs from the model.
 - Consequential tools (changing people or occurrences, authorizing visitors) take two steps:
   `confirmed=false` returns a summary with a `preview_key` in `ToolResult.log`;
@@ -94,6 +94,9 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
   `GOOGLE_MODE=fake` works without credentials (`docs/google-setup.md`). Values are written
   RAW, so text that looks like a formula stays text.
 - Postgres search uses the `pt_unaccent` text search config (migration 0003).
+- Documents for rules Q&A arrive as WhatsApp files from the manager and are handled by
+  `services/rules.py` without the model: saved to Drive (`gdrive:` URIs, readable under
+  `drive.file` because Zela created them), indexed by the `document-index` job (ADR 0015).
 - Keep `apps/web/src/lib/types.ts` and `src/lib/permissions.ts` in sync with the API schemas and
   `app/rbac/permissions.py`.
 

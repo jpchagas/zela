@@ -131,6 +131,14 @@ VISITOR_ARRIVED = Template(
     params=("visitor", "condominium", "time", "code"),
 )
 
+DOCUMENT_STATUS = Template(
+    name="zela_document_status",
+    language="pt_BR",
+    category="UTILITY",
+    body='📄 Documento "{{1}}": {{2}}',
+    params=("title", "status"),
+)
+
 TEMPLATES = {
     t.name: t
     for t in (
@@ -144,5 +152,6 @@ TEMPLATES = {
         VISITOR_AT_GATE,
         VISITOR_ANSWER,
         VISITOR_ARRIVED,
+        DOCUMENT_STATUS,
     )
 }

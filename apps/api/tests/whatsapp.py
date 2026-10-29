@@ -23,7 +23,13 @@ RESIDENT_PHONE = "+5511987654321"
 
 
 def inbound_payload(
-    condo: Condominium, from_e164: str, text: str | None, *, msg_type="text", wamid=None
+    condo: Condominium,
+    from_e164: str,
+    text: str | None,
+    *,
+    msg_type="text",
+    wamid=None,
+    document: dict | None = None,
 ) -> dict:
     message = {
         "id": wamid or f"wamid.test{next(_ids)}",
@@ -32,6 +38,9 @@ def inbound_payload(
     }
     if msg_type == "text":
         message["text"] = {"body": text}
+    if document is not None:
+        message["type"] = "document"
+        message["document"] = document
     return {
         "entry": [
             {

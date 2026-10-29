@@ -8,6 +8,7 @@ import hashlib
 import io
 import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -245,8 +246,15 @@ def _split_long(paragraph: str) -> list[str]:
     return pieces
 
 
-def index_document(db: Session, store: BlobStore, document_id: uuid.UUID) -> None:
-    """Extract, chunk and store a document. Safe to rerun: chunks are replaced."""
+def index_document(
+    db: Session,
+    store: BlobStore,
+    document_id: uuid.UUID,
+    *,
+    read: Callable[[Document], bytes] | None = None,
+) -> None:
+    """Extract, chunk and store a document. Safe to rerun: chunks are replaced. `read`
+    fetches the file when it isn't in the blob store (documents kept in Drive)."""
     document = db.get(Document, document_id)
     if document is None or document.status in (DocumentStatus.READY, DocumentStatus.INACTIVE):
         return
@@ -254,7 +262,8 @@ def index_document(db: Session, store: BlobStore, document_id: uuid.UUID) -> Non
     document.error = None
     db.commit()
     try:
-        chunks = chunk_pages(extract_pages(store.get(document.storage_uri), document.mime_type))
+        data = read(document) if read else store.get(document.storage_uri)
+        chunks = chunk_pages(extract_pages(data, document.mime_type))
     except ExtractionError as exc:
         document.status = DocumentStatus.FAILED
         document.error = str(exc)

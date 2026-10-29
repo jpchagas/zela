@@ -69,6 +69,12 @@ say +5511933330001 "visitante Marcos"
 say +5511933330001 "entrada <código>"         # Juliana is told Marcos arrived
 say +5511933330001 "anunciar Paulo pro 204"   # Juliana is asked on WhatsApp
 say +5511912345678 "sim"                     # the desk is told she let him in
+# The manager sends a document (any PDF with selectable text), then a resident asks:
+curl -s localhost:8000/dev/whatsapp/inbound -H 'Content-Type: application/json' -d "{
+  \"condominium_id\":\"<id>\",\"from_e164\":\"+5511955550000\",
+  \"document\":{\"filename\":\"Regimento Interno.pdf\",
+  \"content_base64\":\"$(base64 -w0 regimento.pdf)\"}}"
+say +5511912345678 "qual o horário da piscina?"
 ```
 
 With Claude (`LLM_PROVIDER=anthropic`), write naturally.
@@ -131,8 +137,9 @@ make eval        # opt-in AI evals against the real model (costs money)
 - Phase 5, done: residents authorize visitors (two steps) and get a code; the desk checks
   visitors and records entries, and whoever authorized is told; for unannounced visitors
   the desk asks the unit on WhatsApp and gets the answer back (ADR 0014).
-- Next, optionally: questions about the condominium's rules, answered from documents in
-  Drive (Phase 6).
+- Phase 6, done: the manager sends the regulations (PDF or .txt) in the chat; Zela saves
+  them to Drive and indexes them; anyone asks about the rules and gets answers that cite
+  the document (ADR 0015).
 
 The Milestone 1–3 build below is still in the code and is being replaced:
 

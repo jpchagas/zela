@@ -201,6 +201,8 @@ _ROLE_WORDS = (
     ("morador", "morador"),
     ("inquilin", "morador"),
 )
+# Questions about the rules ("qual o horário da piscina?").
+_RULES = ("horario", "regra", "regimento", "permitid", "proibid", "multa", "taxa", "mudanca")
 _YES = ("sim", "confirmo", "pode", "ok", "isso")
 
 
@@ -264,6 +266,8 @@ class _PeopleRuleSession:
                 return self._call("find_people", query=text.split(maxsplit=1)[-1][:80])
         if "encomenda" in low and (turn := self._delivery_turn(text)) is not None:
             return turn
+        if "search_rules" in self.tools and "?" in text and any(w in _fold(low) for w in _RULES):
+            return self._call("search_rules", query=text[:200])
         if "find_occurrences" in self.tools and "ocorrencias abertas" in _fold(low):
             return self._call("find_occurrences", only_open=True, query="")
         if "minhas ocorr" in low or "minha ocorr" in low:
@@ -376,6 +380,11 @@ class _PeopleRuleSession:
         if outcome.is_error:
             return f"Não consegui: {outcome.content}{suffix}"
         data = json.loads(outcome.content)
+        if self.last_tool == "search_rules":
+            if not data["results"]:
+                return f"Não encontrei isso nos documentos do condomínio.{suffix}"
+            best = data["results"][0]
+            return f"{best['excerpt'][:300]} (Fonte: {best['source']}){suffix}"
         if self.last_tool == "authorize_visitor":
             if data.get("needs_confirmation"):
                 v = data["summary"]

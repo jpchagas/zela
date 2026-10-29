@@ -21,6 +21,7 @@ from app.agents.occurrence_tools import (
     UpdateOccurrence,
 )
 from app.agents.people_tools import FindPeople, GetMyRegistration, RegisterPerson, UpdatePerson
+from app.agents.rule_tools import ListDocuments, RemoveDocument, SearchRules
 from app.agents.tools import ToolContext, ToolRegistry
 from app.agents.visitor_tools import (
     AnnounceVisitor,
@@ -54,6 +55,7 @@ def build_registry(role: PersonRole) -> ToolRegistry:
     registry.register(ReportOccurrence())
     registry.register(GetMyOccurrences())
     registry.register(GetMyDeliveries())
+    registry.register(SearchRules())
     if role != PersonRole.STAFF:
         registry.register(AuthorizeVisitor())
         registry.register(GetMyVisitors())
@@ -72,6 +74,8 @@ def build_registry(role: PersonRole) -> ToolRegistry:
         registry.register(UpdatePerson())
         registry.register(FindOccurrences())
         registry.register(UpdateOccurrence())
+        registry.register(ListDocuments())
+        registry.register(RemoveDocument())
     return registry
 
 

@@ -219,3 +219,31 @@ def test_column_letters():
         "ZZ",
         "AAA",
     ]
+
+
+def test_upload_is_multipart_related_and_download_returns_bytes():
+    def upload(request: httpx.Request) -> httpx.Response:
+        content_type = request.headers["content-type"]
+        assert content_type.startswith("multipart/related; boundary=")
+        body = request.content
+        assert b'"parents": ["folder1"]' in body and b'"zela_item": "document:m1"' in body
+        assert b"Content-Type: application/pdf\r\n\r\n%PDF-1.4" in body
+        return httpx.Response(200, json={"id": "f9"})
+
+    google = Google(
+        [
+            TOKEN,
+            ("POST", "/upload/drive/v3/files?uploadType=multipart", upload),
+            ("GET", "/drive/v3/files/f9?alt=media", httpx.Response(200, content=b"%PDF-1.4 x")),
+        ]
+    )
+    ws = google.client().workspace("rt")
+    file_id = ws.upload_file(
+        "Regimento.pdf",
+        mime_type="application/pdf",
+        data=b"%PDF-1.4 x",
+        folder_id="folder1",
+        app_properties={"zela_item": "document:m1"},
+    )
+    assert file_id == "f9" and ws.download_file("f9") == b"%PDF-1.4 x"
+    assert all(r.headers["authorization"] == "Bearer at" for r in google.requests[1:])

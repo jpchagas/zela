@@ -6,6 +6,7 @@ import json
 import logging
 import re
 import time
+import uuid
 from collections.abc import Callable
 from typing import Any
 from urllib.parse import urlencode
@@ -30,6 +31,7 @@ AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 DRIVE = "https://www.googleapis.com/drive/v3/files"
+DRIVE_UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
 SHEETS = "https://sheets.googleapis.com/v4/spreadsheets"
 
 RETRY_STATUSES = {429, 500, 502, 503, 504}
@@ -149,6 +151,37 @@ class GoogleWorkspace:
     def create_folder(self, name: str, *, app_properties: dict[str, str]) -> str:
         body = {"name": name, "mimeType": FOLDER_MIME, "appProperties": app_properties}
         return self._call("POST", DRIVE, params={"fields": "id"}, json=body)["id"]
+
+    def upload_file(
+        self,
+        name: str,
+        *,
+        mime_type: str,
+        data: bytes,
+        folder_id: str,
+        app_properties: dict[str, str],
+    ) -> str:
+        # Drive's multipart upload is multipart/related: JSON metadata, then the bytes.
+        boundary = f"zela-{uuid.uuid4().hex}"
+        metadata = {"name": name, "parents": [folder_id], "appProperties": app_properties}
+        body = (
+            (
+                f"--{boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"
+                f"{json.dumps(metadata)}\r\n--{boundary}\r\nContent-Type: {mime_type}\r\n\r\n"
+            ).encode()
+            + data
+            + f"\r\n--{boundary}--".encode()
+        )
+        return self._call(
+            "POST",
+            DRIVE_UPLOAD,
+            params={"uploadType": "multipart", "fields": "id"},
+            content=body,
+            headers={"Content-Type": f"multipart/related; boundary={boundary}"},
+        )["id"]
+
+    def download_file(self, file_id: str) -> bytes:
+        return self._call("GET", f"{DRIVE}/{file_id}", params={"alt": "media"}, raw=True)
 
     def create_spreadsheet(
         self,
@@ -290,12 +323,14 @@ class GoogleWorkspace:
             raise GoogleNotFound("The register's tab was deleted")
         return "'" + self._tab_titles[key].replace("'", "''") + "'"
 
-    def _call(self, method: str, url: str, **kwargs: Any) -> dict[str, Any]:
+    def _call(self, method: str, url: str, *, raw: bool = False, **kwargs: Any) -> Any:
+        """JSON response body, or the raw bytes with raw=True."""
         refreshed = False
+        extra_headers = kwargs.pop("headers", {})
         for attempt in range(1, MAX_ATTEMPTS + 1):
             if self._access_token is None:
                 self._access_token = self._google.refresh(self._refresh_token)
-            headers = {"Authorization": f"Bearer {self._access_token}"}
+            headers = {**extra_headers, "Authorization": f"Bearer {self._access_token}"}
             try:
                 response = self._google._http.request(method, url, headers=headers, **kwargs)
             except httpx.HTTPError as exc:
@@ -305,6 +340,8 @@ class GoogleWorkspace:
                 continue
             status = response.status_code
             if status < 300:
+                if raw:
+                    return response.content
                 return response.json() if response.content else {}
             if status == 401 and not refreshed:
                 self._access_token, refreshed = None, True

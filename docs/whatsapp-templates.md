@@ -110,6 +110,17 @@ Samples: `B 302` · `liberou` · `Diego Alves` · `482913`
 
 Samples: `Rafael Costa` · `Residencial Aurora` · `15:04` · `482913`
 
+### `zela_document_status` (Utility)
+
+```
+📄 Documento "{{1}}": {{2}}
+```
+
+Samples: `Regimento Interno` · `pronto. Os moradores já podem perguntar sobre ele por aqui.`
+
+Sent to the manager when a document they sent on WhatsApp is indexed, or can't be read
+(ADR 0015).
+
 ## Changing a template
 
 Meta treats an edited body as a new submission. Change the text in `templates.py` and in

@@ -37,6 +37,7 @@ class FakeFile:
     app_properties: dict[str, str]
     trashed: bool = False
     tabs: dict[int, FakeTab] = field(default_factory=dict)
+    content: bytes = b""
 
 
 class FakeGoogle:
@@ -150,6 +151,26 @@ class FakeWorkspace:
 
     def create_folder(self, name: str, *, app_properties: dict[str, str]) -> str:
         return self._create(name, FOLDER_MIME, [], app_properties).id
+
+    def upload_file(
+        self,
+        name: str,
+        *,
+        mime_type: str,
+        data: bytes,
+        folder_id: str,
+        app_properties: dict[str, str],
+    ) -> str:
+        self._file(folder_id)
+        file = self._create(name, mime_type, [folder_id], app_properties)
+        file.content = data
+        return file.id
+
+    def download_file(self, file_id: str) -> bytes:
+        file = self._file(file_id)
+        if file.trashed:
+            raise GoogleNotFound("File not found")
+        return file.content
 
     def create_spreadsheet(
         self,

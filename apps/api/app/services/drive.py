@@ -4,7 +4,9 @@ they are and holds the encrypted grant."""
 
 import logging
 import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
+from typing import TypeVar
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -41,6 +43,9 @@ STATE_TTL_SECONDS = 600
 
 MSG_UNAVAILABLE = "O Google não respondeu. Tente sincronizar de novo em alguns minutos."
 MSG_REAUTH = "O acesso ao Google Drive foi revogado ou expirou. Conecte o Drive de novo."
+T = TypeVar("T")
+
+MSG_FILE_MISSING = "O arquivo foi apagado ou movido para a lixeira no Google Drive."
 MSG_TAB_DELETED = 'A aba da planilha "{title}" foi apagada. Restaure-a pelo histórico de versões.'
 
 
@@ -367,6 +372,33 @@ def _ensure_register(
 def uses_sheets(db: Session, condominium_id: uuid.UUID) -> bool:
     """Whether the condominium has moved to sheet-backed records (ADR 0010)."""
     return _connection(db, condominium_id) is not None
+
+
+def run_in_drive(
+    db: Session,
+    google: Google,
+    condominium_id: uuid.UUID,
+    fn: Callable[[Workspace, str], T],
+) -> T:
+    """Runs fn(workspace, folder_id) as the condominium's Drive account, for files other
+    than the registers (documents). Raises RegisterUnavailable."""
+    connection = _connection(db, condominium_id)
+    if connection is None:
+        raise RegisterUnavailable("Google Drive is not connected")
+    if connection.status != DriveStatus.ACTIVE:
+        raise RegisterUnavailable(MSG_REAUTH)
+    if not connection.folder_id:
+        raise RegisterUnavailable("The Zela folder has not been created yet")
+    try:
+        return fn(_workspace(google, connection), connection.folder_id)
+    except GoogleAuthError as exc:
+        connection.status = DriveStatus.REAUTH_REQUIRED
+        db.commit()
+        raise RegisterUnavailable(MSG_REAUTH) from exc
+    except GoogleNotFound as exc:
+        raise RegisterUnavailable(MSG_FILE_MISSING) from exc
+    except GoogleError as exc:
+        raise RegisterUnavailable(MSG_UNAVAILABLE) from exc
 
 
 def open_table(

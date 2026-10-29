@@ -3,18 +3,19 @@
 import logging
 import uuid
 
+from app.core.jobs import get_job_publisher
 from app.db.session import SessionLocal
 from app.integrations.google.factory import get_google
 from app.integrations.storage import get_blob_store
 from app.integrations.whatsapp.sender import get_whatsapp_sender
 from app.llm.factory import get_llm_client
-from app.services import documents, drive, notifications
+from app.services import drive, notifications, rules
 from app.workers.inbound import process_webhook_event
 
 logger = logging.getLogger(__name__)
 
 INBOUND_TOPIC = "whatsapp-inbound"
-DOCUMENT_TOPIC = "document-index"
+DOCUMENT_TOPIC = rules.DOCUMENT_TOPIC
 NOTIFICATION_TOPIC = notifications.NOTIFICATION_TOPIC
 DRIVE_SETUP_TOPIC = drive.DRIVE_SETUP_TOPIC
 
@@ -32,7 +33,13 @@ def run_inbound_job(payload: dict[str, str]) -> None:
 
 def run_document_job(payload: dict[str, str]) -> None:
     with SessionLocal() as db:
-        documents.index_document(db, get_blob_store(), uuid.UUID(payload["document_id"]))
+        rules.index(
+            db,
+            get_google(),
+            get_blob_store(),
+            get_job_publisher(),
+            uuid.UUID(payload["document_id"]),
+        )
 
 
 def run_notification_job(payload: dict[str, str]) -> None:

@@ -63,6 +63,18 @@ class Workspace(Protocol):
 
     def create_folder(self, name: str, *, app_properties: dict[str, str]) -> str: ...
 
+    def upload_file(
+        self,
+        name: str,
+        *,
+        mime_type: str,
+        data: bytes,
+        folder_id: str,
+        app_properties: dict[str, str],
+    ) -> str: ...
+
+    def download_file(self, file_id: str) -> bytes: ...
+
     def create_spreadsheet(
         self,
         name: str,

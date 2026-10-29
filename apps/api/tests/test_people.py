@@ -164,6 +164,7 @@ def test_a_resident_row_identifies_the_sender_with_their_own_tools(
         "report_occurrence",
         "get_my_occurrences",
         "get_my_deliveries",
+        "search_rules",
         "authorize_visitor",
         "get_my_visitors",
         "answer_visitor",
@@ -214,6 +215,7 @@ def test_the_broadest_role_applies_and_the_manager_needs_a_confirmed_number(
         "report_occurrence",
         "get_my_occurrences",
         "get_my_deliveries",
+        "search_rules",
         "authorize_visitor",
         "get_my_visitors",
         "answer_visitor",
@@ -229,6 +231,8 @@ def test_the_broadest_role_applies_and_the_manager_needs_a_confirmed_number(
         "update_person",
         "find_occurrences",
         "update_occurrence",
+        "list_documents",
+        "remove_document",
     ]
 
 
