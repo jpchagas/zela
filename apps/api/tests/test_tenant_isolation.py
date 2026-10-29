@@ -38,6 +38,7 @@ def _resident(client, condo_id, email, **extra):
         "/staff",
         "/conversations",
         "/audit-events",
+        "/drive",
     ],
 )
 def test_foreign_condominium_reads_are_404(client, world, email, condo_attr, path):

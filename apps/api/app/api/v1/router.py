@@ -5,6 +5,7 @@ from app.api.v1 import (
     condominiums,
     conversations,
     documents,
+    drive,
     emergency_contacts,
     me,
     residents,
@@ -17,6 +18,7 @@ api_router = APIRouter(prefix="/v1")
 for module in (
     me,
     condominiums,
+    drive,
     units,
     residents,
     staff,

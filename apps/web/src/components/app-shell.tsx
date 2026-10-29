@@ -1,22 +1,6 @@
 "use client";
 
-import {
-  Bot,
-  Building2,
-  FileText,
-  History,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  MessagesSquare,
-  Settings,
-  ShieldCheck,
-  UserCheck,
-  Users,
-  Wrench,
-  X,
-  type LucideIcon,
-} from "lucide-react";
+import { LogOut, Menu, Settings, X, type LucideIcon } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -35,43 +19,9 @@ interface NavItem {
   permission?: Permission;
 }
 
+// Day-to-day work happens on WhatsApp (ADR 0010); the web app is setup only.
 const NAV: { section: string; items: NavItem[] }[] = [
-  {
-    section: "Operação",
-    items: [
-      { href: "", label: "Visão geral", icon: LayoutDashboard },
-      { href: "/tickets", label: "Chamados", icon: Wrench },
-      { href: "/visitors", label: "Visitantes", icon: UserCheck },
-      {
-        href: "/conversations",
-        label: "Conversas",
-        icon: MessagesSquare,
-        permission: "conversations.read",
-      },
-    ],
-  },
-  {
-    section: "Cadastro",
-    items: [
-      { href: "/residents", label: "Moradores", icon: Users, permission: "residents.read" },
-      { href: "/units", label: "Blocos e unidades", icon: Building2 },
-      { href: "/documents", label: "Documentos", icon: FileText, permission: "documents.manage" },
-    ],
-  },
-  {
-    section: "Administração",
-    items: [
-      { href: "/staff", label: "Equipe e permissões", icon: ShieldCheck, permission: "staff.read" },
-      { href: "/audit", label: "Auditoria", icon: History, permission: "audit.read" },
-      { href: "/assistant", label: "WhatsApp e IA", icon: Bot, permission: "condominium.update" },
-      {
-        href: "/settings",
-        label: "Configurações",
-        icon: Settings,
-        permission: "condominium.update",
-      },
-    ],
-  },
+  { section: "Zela", items: [{ href: "", label: "Configuração", icon: Settings }] },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {

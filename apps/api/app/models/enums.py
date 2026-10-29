@@ -147,3 +147,24 @@ class JobStatus(StrEnum):
     RECEIVED = "received"
     PROCESSED = "processed"
     FAILED = "failed"
+
+
+class DriveStatus(StrEnum):
+    ACTIVE = "active"
+    # Google refused the stored grant (revoked or expired); the manager must reconnect.
+    REAUTH_REQUIRED = "reauth_required"
+
+
+class RegisterKind(StrEnum):
+    """The condominium spreadsheets Zela keeps in the manager's Drive (ADR 0010)."""
+
+    PEOPLE = "people"
+    OCCURRENCES = "occurrences"
+    VISITORS = "visitors"
+    DELIVERIES = "deliveries"
+
+
+class RegisterStatus(StrEnum):
+    PENDING = "pending"
+    READY = "ready"
+    FAILED = "failed"

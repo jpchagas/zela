@@ -23,7 +23,19 @@ class Settings(BaseSettings):
     whatsapp_access_token: str = ""
     whatsapp_graph_version: str = "v23.0"
 
-    # Keys HMACs of enrollment codes. Must be a long random value outside development.
+    # Google Drive and Sheets (ADR 0010). "google" calls Google's APIs; "fake" keeps an
+    # in-memory Drive (tests, and local runs without OAuth credentials).
+    google_mode: Literal["google", "fake"] = "google"
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    # Must match an authorized redirect URI on the Google OAuth client.
+    google_redirect_uri: str = "http://localhost:8000/oauth/google/callback"
+    # Where the browser lands after the Google consent screen.
+    web_base_url: str = "http://localhost:3000"
+
+    # Keys HMACs of enrollment codes, OAuth state signatures and stored-credential
+    # encryption. Must be a long random value outside development; changing it makes
+    # stored Drive connections unreadable (managers reconnect).
     secret_key: str = "dev-insecure-secret-key"
 
     # "anthropic" calls the Claude API (ANTHROPIC_API_KEY is read by the SDK);

@@ -24,7 +24,7 @@ export function EmergencyContactsCard({ condoId }: { condoId: string }) {
   const contacts = useApiQuery<EmergencyContact[]>(url);
 
   return (
-    <Card className="max-w-2xl">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Siren className="size-4 text-red-600" /> Plantão de emergência

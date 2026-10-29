@@ -1,12 +1,15 @@
 # Zela
 
-The AI concierge for condominiums. Residents use WhatsApp, and managers and staff use a web
-dashboard. See [product_design_document.md](product_design_document.md) for scope and
-[docs/adr/](docs/adr/) for architecture decisions.
+The low-cost AI concierge for condominiums. Everyone uses WhatsApp: the manager, owners,
+residents and staff. The condominium's records are Google Sheets in the manager's own
+Drive, and the website is only for setup (connecting WhatsApp and Drive). See
+[ADR 0010](docs/adr/0010-whatsapp-first-sheets-as-records.md) for this direction,
+[product_design_document.md](product_design_document.md) for the original scope, and
+[docs/adr/](docs/adr/) for every architecture decision.
 
 ```
-apps/api   FastAPI · SQLAlchemy · Alembic · Postgres   (business services, RBAC, agent tools, webhooks)
-apps/web   Next.js · Tailwind · shadcn/ui              (management dashboard, pt-BR)
+apps/api   FastAPI · SQLAlchemy · Alembic · Postgres   (webhooks, agent tools, Google Sheets registers)
+apps/web   Next.js · Tailwind · shadcn/ui              (setup page for the manager, pt-BR)
 docs/adr   Architecture decision records
 infra/     Local infrastructure helpers
 ```
@@ -30,13 +33,23 @@ outside `ENV=development|test`. For Firebase, set `AUTH_MODE=firebase` and
 `FIREBASE_PROJECT_ID` in `apps/api/.env`, and the `NEXT_PUBLIC_FIREBASE_*` values in
 `apps/web/.env.local`.
 
+### Connect Google Drive
+
+The setup page's **Conectar Google Drive** button creates the condominium's spreadsheets.
+With `GOOGLE_MODE=fake` (the default in `.env.example`), it works without any Google
+account, against an in-memory Drive that's lost on restart. To use your real Drive, follow
+[docs/google-setup.md](docs/google-setup.md).
+
 ### Try the WhatsApp flow locally
+
+This still runs the Milestone 1–3 flow, which ADR 0010 is replacing phase by phase.
 
 With `ENV=development`, `POST /dev/whatsapp/inbound` feeds a message through the real
 pipeline (ledger → worker → enrollment/concierge) without Meta and returns the replies.
 The seeded condominium has a WhatsApp ID, so:
 
-1. In the dashboard, add a resident with a phone, then click **Gerar código** on the phone.
+1. Register a resident and issue an enrollment code through the API (`/docs`). Those
+   dashboard screens were removed in the pivot.
 2. Simulate the resident sending the code, then any question:
 
 ```bash
@@ -44,15 +57,14 @@ curl -s localhost:8000/dev/whatsapp/inbound -H 'Content-Type: application/json' 
   -d '{"condominium_id":"<id>","from_e164":"+5511987654321","text":"ABCD-2345"}'
 ```
 
-To try documents and tickets: upload a PDF in **Documentos**, ask about it, or report a
-problem ("o portão da garagem quebrou"). Tickets appear in **Chamados**. Add an on-call
-contact in **Configurações** to see emergency alerts; locally they're recorded, not sent.
+Report a problem ("o portão da garagem quebrou") to open a ticket. Add an on-call contact
+on the setup page to see emergency alerts; locally they're recorded, not sent.
 
 `LLM_PROVIDER=scripted` (the default in `.env.example`) answers with a rule-based stand-in.
 It only understands a few phrases and doesn't use documents or tickets, so use Claude to
 try those flows.
-Set `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` to use Claude. Replies show up in
-**Conversas**.
+Set `LLM_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` to use Claude. The default model is
+`claude-haiku-5-5`; set `LLM_MODEL` to change it.
 
 ## Checks
 
@@ -64,6 +76,17 @@ make eval        # opt-in AI evals against the real model (costs money)
 ```
 
 ## Status
+
+**Changing direction (ADR 0010).** The rework goes in phases on `feat/sheets-pivot`:
+
+- Phase 0, done: the decision is recorded and the default model is Haiku.
+- Phase 1, done: Google Drive connection; the condominium's registers (Pessoas,
+  Ocorrências, Visitantes, Encomendas) are found or created in the manager's Drive and
+  read by column name, tolerating hand edits; the website is cut down to setup.
+- Next: Phase 2, people registered and recognized through WhatsApp. Then occurrences,
+  deliveries, visitors, and optionally questions about the condominium's rules.
+
+The Milestone 1–3 build below is still in the code and is being replaced:
 
 Milestone 0 (foundation) and the Milestone 1 slice are in place:
 
@@ -101,5 +124,3 @@ Milestone 3 (knowledge and maintenance):
 - Notifications: plain text inside the 24h window and approved templates outside it
   (`docs/whatsapp-templates.md`). Each one is re-checked against the stored state before
   sending.
-
-Next: Milestone 4. That covers visitor authorization.

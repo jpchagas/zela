@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import webhooks
+from app.api import oauth, webhooks
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.errors import install_error_handlers
@@ -19,6 +19,7 @@ def create_app() -> FastAPI:
     install_error_handlers(app)
     app.include_router(api_router)
     app.include_router(webhooks.router)
+    app.include_router(oauth.router)
     if settings.env == "development":
         from app.api import dev
 

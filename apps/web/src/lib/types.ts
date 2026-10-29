@@ -248,3 +248,25 @@ export interface EmergencyContact {
   phone_e164: string;
   created_at: string;
 }
+
+export type DriveConnectionStatus = "active" | "reauth_required";
+export type RegisterKind = "people" | "occurrences" | "visitors" | "deliveries";
+export type RegisterStatus = "pending" | "ready" | "failed";
+
+export interface DriveRegister {
+  kind: RegisterKind;
+  title: string;
+  status: RegisterStatus;
+  url: string | null;
+  last_error: string | null;
+}
+
+export interface DriveStatus {
+  configured: boolean;
+  connected: boolean;
+  status: DriveConnectionStatus | null;
+  account_email: string | null;
+  connected_at: string | null;
+  folder_url: string | null;
+  registers: DriveRegister[];
+}

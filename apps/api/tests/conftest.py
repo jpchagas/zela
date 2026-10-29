@@ -26,6 +26,8 @@ from sqlalchemy.orm import Session  # noqa: E402
 
 from app.core.jobs import get_job_publisher  # noqa: E402
 from app.db.session import get_db  # noqa: E402
+from app.integrations.google.factory import get_google  # noqa: E402
+from app.integrations.google.fake import FakeGoogle  # noqa: E402
 from app.integrations.storage import LocalBlobStore, get_blob_store  # noqa: E402
 from app.main import app  # noqa: E402
 from tests.factories import FakePublisher, World, build_world  # noqa: E402
@@ -86,6 +88,14 @@ def publisher():
     """Collects published jobs; tests run them explicitly."""
     fake = FakePublisher()
     app.dependency_overrides[get_job_publisher] = lambda: fake
+    return fake
+
+
+@pytest.fixture
+def google():
+    """In-memory Google Drive; tests read and hand-edit its spreadsheets."""
+    fake = FakeGoogle()
+    app.dependency_overrides[get_google] = lambda: fake
     return fake
 
 

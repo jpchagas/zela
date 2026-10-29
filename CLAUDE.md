@@ -17,8 +17,12 @@ work screens or to the Postgres business tables. Read `README.md` for the quicks
 - `apps/api`: FastAPI + SQLAlchemy 2 (sync) + Alembic. Layout: `app/api` (thin routes),
   `app/services` (business logic, commits, audit), `app/rbac` (CondoContext, permissions),
   `app/auth` (token verification), `app/models`, `app/integrations/whatsapp` (receiver,
-  sender, templates), `app/integrations/storage.py` (local disk / GCS), `app/workers` (inbound job, sweeper), `app/llm` (provider-neutral interface, Claude
-  adapter, scripted stand-ins), `app/agents` (concierge, tools, prompts).
+  sender, templates), `app/integrations/google` (OAuth, Drive and Sheets client, plus
+  `FakeGoogle`), `app/registers` (sheet specs, `Table`), `app/integrations/storage.py` (local
+  disk / GCS), `app/workers` (inbound job, sweeper), `app/llm` (provider-neutral interface,
+  Claude adapter, scripted stand-ins), `app/agents` (concierge, tools, prompts).
+- `apps/web` is now a single setup page (`app/c/[condoId]/page.tsx`): WhatsApp, Google Drive,
+  on-call contacts.
 - `apps/web`: Next.js App Router, Tailwind v4, shadcn/ui. UI copy is pt-BR. Brand tokens are in
   `src/app/globals.css`.
 
@@ -66,6 +70,15 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
   `publisher` fixture, and run jobs explicitly.
 - Ticket category and priority come from `services/tickets.classify()` (ADR 0009). Don't store
   model output directly as confirmed values.
+- Condominium records go through `services/drive.open_table()`, which loads a `Table`
+  under the per-condominium sheet lock; commit after the last write. Columns are matched by
+  header name (`app/registers/specs.py`). Add columns freely, but never rename a header.
+  Every row Zela writes gets an `ID Zela` derived from the triggering message, so a retried
+  message can't add the same row twice.
+- Google calls go through the `Google` and `Workspace` protocols. Tests use the `google`
+  fixture (`FakeGoogle`) and hand-edit its tabs to simulate managers; locally,
+  `GOOGLE_MODE=fake` works without credentials (`docs/google-setup.md`). Values are written
+  RAW, so text that looks like a formula stays text.
 - Postgres search uses the `pt_unaccent` text search config (migration 0003).
 - Keep `apps/web/src/lib/types.ts` and `src/lib/permissions.ts` in sync with the API schemas and
   `app/rbac/permissions.py`.
