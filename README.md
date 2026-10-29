@@ -31,7 +31,7 @@ make web-install web-dev                 # http://localhost:3000, sign in with t
 ```
 
 Both apps default to **dev auth** (`AUTH_MODE=dev` / `NEXT_PUBLIC_AUTH_MODE=dev`): the
-dashboard sends `Bearer dev:<email>` and the API trusts it. The API refuses this mode
+website sends `Bearer dev:<email>` and the API trusts it. The API refuses this mode
 outside `ENV=development|test`. For Firebase, set `AUTH_MODE=firebase` and
 `FIREBASE_PROJECT_ID` in `apps/api/.env`, and the `NEXT_PUBLIC_FIREBASE_*` values in
 `apps/web/.env.local`.
@@ -120,7 +120,7 @@ make eval        # opt-in AI evals against the real model (costs money)
 
 ## Status
 
-**Changing direction (ADR 0010).** The rework goes in phases on `feat/sheets-pivot`:
+**Changing direction (ADR 0010).** The rework goes in phases:
 
 - Phase 0, done: the decision is recorded and the default model is Haiku.
 - Phase 1, done: Google Drive connection; the condominium's registers (Pessoas,

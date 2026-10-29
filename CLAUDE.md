@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository state
 
-**Changing direction (ADR 0010, branch `feat/sheets-pivot`).** Zela is a low-cost,
+**Changing direction (ADR 0010).** Zela is a low-cost,
 WhatsApp-first product. Everyone uses WhatsApp: manager, owners, residents and staff. The
 condominium's records are Google Sheets in the manager's Drive. The website is setup only,
 for the manager: connect WhatsApp, connect Drive. Postgres keeps only setup and plumbing data.
