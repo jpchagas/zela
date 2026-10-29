@@ -57,6 +57,12 @@ say +5511912345678 "o portão da garagem quebrou"      # occurrence #1
 say +5511912345678 "tem fumaça saindo do quadro de luz" # emergency: on-call + manager alerted
 say +5511912345678 "minhas ocorrências"
 say +5511955550000 "ocorrencias abertas"
+say +5511955550000 "cadastrar Jorge Silva, 11 93333-0001, porteiro"
+say +5511955550000 "sim"
+say +5511933330001 "chegou encomenda pro 204 bloco B"   # Juliana is told
+say +5511912345678 "tem encomenda pra mim?"
+say +5511933330001 "encomenda #1 retirada pela Juliana"
+say +5511933330001 "encomendas pendentes"
 ```
 
 With Claude (`LLM_PROVIDER=anthropic`), write naturally.
@@ -113,8 +119,10 @@ make eval        # opt-in AI evals against the real model (costs money)
   become numbered rows in Ocorrências; emergencies alert the on-call contacts and the
   manager; people follow their own occurrences; the manager lists and updates them (two
   steps) and the reporter is told (ADR 0012).
-- Next: Phase 4, deliveries (Encomendas). Then visitors, and optionally questions about
-  the condominium's rules.
+- Phase 4, done: staff and the manager record packages by WhatsApp in Encomendas; the
+  unit's residents (or the named recipient) are told; residents ask what's waiting for
+  them; staff mark pickups and returns (ADR 0013).
+- Next: Phase 5, visitors. Then, optionally, questions about the condominium's rules.
 
 The Milestone 1–3 build below is still in the code and is being replaced:
 

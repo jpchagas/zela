@@ -72,6 +72,17 @@ Samples: `Residencial Aurora` · `Cheiro de gás no 3º andar` · `Corredor do 3
 This replaces `zela_emergency_alert` for condominiums on Google Sheets, which have no dashboard
 to point to.
 
+### `zela_delivery_arrived` (Utility)
+
+```
+📦 Olá, {{1}}! Chegou uma encomenda para a unidade {{2}}: {{3}}. Ela está na portaria, com o número #{{4}}.
+```
+
+Samples: `Ana` · `B 302` · `Caixa Mercado Livre` · `8`
+
+Sent to the named recipient if registered on the unit, otherwise to its residents (ADR 0013).
+Skipped if the package was picked up before the message went out.
+
 ## Changing a template
 
 Meta treats an edited body as a new submission. Change the text in `templates.py` and in

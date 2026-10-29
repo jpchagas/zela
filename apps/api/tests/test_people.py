@@ -163,6 +163,7 @@ def test_a_resident_row_identifies_the_sender_with_their_own_tools(
         "get_my_registration",
         "report_occurrence",
         "get_my_occurrences",
+        "get_my_deliveries",
     ]
     assert "Papel: Morador" in session.context and "Ana" in session.context
     data = json.loads(session.outcomes[0].content)
@@ -208,6 +209,10 @@ def test_the_broadest_role_applies_and_the_manager_needs_a_confirmed_number(
         "get_my_registration",
         "report_occurrence",
         "get_my_occurrences",
+        "get_my_deliveries",
+        "record_delivery",
+        "find_deliveries",
+        "close_delivery",
         "register_person",
         "find_people",
         "update_person",

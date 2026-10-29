@@ -3,6 +3,7 @@ WhatsApp flow can be exercised locally without an API key."""
 
 import itertools
 import json
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
@@ -257,6 +258,8 @@ class _PeopleRuleSession:
                     return self._call("register_person", **args, confirmed=True)
             if low.startswith(("buscar ", "procurar ", "quem é ", "quem mora")):
                 return self._call("find_people", query=text.split(maxsplit=1)[-1][:80])
+        if "encomenda" in low and (turn := self._delivery_turn(text)) is not None:
+            return turn
         if "find_occurrences" in self.tools and "ocorrencias abertas" in _fold(low):
             return self._call("find_occurrences", only_open=True, query="")
         if "minhas ocorr" in low or "minha ocorr" in low:
@@ -285,6 +288,33 @@ class _PeopleRuleSession:
             'escreva "meu cadastro".'
         )
 
+    def _delivery_turn(self, text: str) -> Turn | None:
+        """'chegou encomenda pro 302 bloco B', 'encomenda #3 retirada pela Ana',
+        'encomendas pendentes', 'tem encomenda pra mim?'"""
+        low = _fold(text.lower())
+        if "record_delivery" in self.tools:
+            number = re.search(r"#\s*(\d+)", low)
+            if number and "retir" in low:
+                by = re.search(r"retirad[ao] (?:pel[ao]|por) (.+)$", text, re.IGNORECASE)
+                return self._call(
+                    "close_delivery",
+                    number=int(number.group(1)),
+                    picked_up_by=by.group(1).strip(" .")[:80] if by else "",
+                )
+            if "pendente" in low or "aguardando" in low:
+                return self._call("find_deliveries", only_waiting=True, query="")
+            unit = re.search(r"(?:apto|apartamento|unidade|pro|pra|para o)\s*(\d+\w?)", low)
+            if unit and "cheg" in low:
+                block = re.search(r"(?:bloco|torre)\s+(\w+)", low)
+                return self._call(
+                    "record_delivery",
+                    unit=unit.group(1),
+                    block=block.group(1).upper() if block else "",
+                    recipient="",
+                    description="",
+                )
+        return self._call("get_my_deliveries")
+
     def _call(self, name: str, /, **args) -> Turn:
         self.last_tool = name
         return call(name, **args)
@@ -294,6 +324,21 @@ class _PeopleRuleSession:
         if outcome.is_error:
             return f"Não consegui: {outcome.content}{suffix}"
         data = json.loads(outcome.content)
+        if self.last_tool == "record_delivery":
+            told = data["people_notified"]
+            return (
+                f"Encomenda {data['reference']} registrada para {data['place']}. "
+                + (f"{told} pessoa(s) avisada(s)." if told else "Ninguém com WhatsApp na unidade.")
+                + suffix
+            )
+        if self.last_tool == "close_delivery":
+            return f"Encomenda #{data['delivery']['number']}: {data['delivery']['status']}.{suffix}"
+        if self.last_tool in ("get_my_deliveries", "find_deliveries"):
+            items = [
+                f"#{d['number']} {d['place']}: {d['description'] or 'encomenda'}"
+                for d in data["deliveries"]
+            ]
+            return ("; ".join(items) or "Nenhuma encomenda aguardando.") + suffix
         if self.last_tool == "register_person":
             if data.get("already_registered"):
                 return f"{data['person']['name']} já está cadastrado(a) nessa unidade.{suffix}"

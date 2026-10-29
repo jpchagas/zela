@@ -18,3 +18,4 @@ consequences. Never edit an accepted ADR's decision; supersede it with a new one
 | [0010](0010-whatsapp-first-sheets-as-records.md) | WhatsApp for every role, Google Sheets as the record, setup-only website | Accepted |
 | [0011](0011-people-and-roles-over-whatsapp.md) | People and roles from the Pessoas sheet, confirmed manager number, two-step changes | Accepted |
 | [0012](0012-occurrences-in-sheets.md) | Occurrences in the Ocorrências sheet, emergency alerts, sheet-guarded updates | Accepted |
+| [0013](0013-deliveries-in-sheets.md) | Deliveries in the Encomendas sheet, notifying the unit, sheet-guarded notices | Accepted |

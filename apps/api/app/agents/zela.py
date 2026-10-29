@@ -8,6 +8,12 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
 from app.agents.concierge import run_agent
+from app.agents.delivery_tools import (
+    CloseDelivery,
+    FindDeliveries,
+    GetMyDeliveries,
+    RecordDelivery,
+)
 from app.agents.occurrence_tools import (
     FindOccurrences,
     GetMyOccurrences,
@@ -38,6 +44,11 @@ def build_registry(role: PersonRole) -> ToolRegistry:
     registry.register(GetMyRegistration())
     registry.register(ReportOccurrence())
     registry.register(GetMyOccurrences())
+    registry.register(GetMyDeliveries())
+    if role in (PersonRole.STAFF, PersonRole.MANAGER):
+        registry.register(RecordDelivery())
+        registry.register(FindDeliveries())
+        registry.register(CloseDelivery())
     if role == PersonRole.MANAGER:
         registry.register(RegisterPerson())
         registry.register(FindPeople())

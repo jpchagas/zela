@@ -93,6 +93,17 @@ OCCURRENCE_EMERGENCY = Template(
     params=("condominium", "summary", "location", "number", "time", "reporter"),
 )
 
+DELIVERY_ARRIVED = Template(
+    name="zela_delivery_arrived",
+    language="pt_BR",
+    category="UTILITY",
+    body=(
+        "📦 Olá, {{1}}! Chegou uma encomenda para a unidade {{2}}: {{3}}. Ela está na "
+        "portaria, com o número #{{4}}."
+    ),
+    params=("first_name", "place", "description", "number"),
+)
+
 TEMPLATES = {
     t.name: t
     for t in (
@@ -102,5 +113,6 @@ TEMPLATES = {
         PERSON_WELCOME,
         OCCURRENCE_UPDATE,
         OCCURRENCE_EMERGENCY,
+        DELIVERY_ARRIVED,
     )
 }
