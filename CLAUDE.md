@@ -54,12 +54,20 @@ This machine's system Python lacks `venv`; the venv was created with Poetry's bu
   changed field names, never personal data values.
 - Enums are stored as VARCHAR + CHECK via `db_enum()`. Pass `name=` when a table has two columns of the
   same enum.
-- Agent capabilities are `Tool` subclasses registered in `app/agents/resident_tools.py`. Tools
-  act only for `ToolContext.resident_id` and never take actor or tenant IDs from the model.
+- Agent capabilities are `Tool` subclasses. Sheet-backed condominiums use `app/agents/zela.py`
+  with tools in `app/agents/people_tools.py`, chosen by the sender's role
+  (`build_registry`); tools act only for `ToolContext.person`. The legacy concierge uses
+  `app/agents/resident_tools.py` and `ToolContext.resident_id`. Tools never take actor or
+  tenant IDs from the model.
+- Consequential tools (changing people, and later occurrences or visitors) take two steps:
+  `confirmed=false` returns a summary with a `preview_key` in `ToolResult.log`;
+  `confirmed=true` must pass `was_previewed()` (ADR 0011).
   Arguments use Pydantic models with `extra="forbid"`. For each new tool, add a `ScriptedLLM`
   test and an eval case.
-- The concierge system prompt (`app/agents/prompts/concierge_system.md`) must stay static
-  (it's cached). Per-run facts go in `render_context()`.
+- System prompts (`app/agents/prompts/*.md`) must stay static (they're cached). Per-run facts
+  go in `render_context()`.
+- Senders in sheet mode are identified by `services/people.identify()` (confirmed manager
+  number plus active Pessoas rows); unknown numbers get a fixed reply without the model.
 - WhatsApp side effects go through `services/conversations.send_outbound` with an idempotency
   key. Never call the sender directly. Proactive messages go through
   `services/notifications.enqueue` with a guard when they announce a state, so they're skipped

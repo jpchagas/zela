@@ -22,7 +22,7 @@ def say(text: str) -> Turn:
     return Turn(text=text, tool_calls=[], stop=StopReason.END)
 
 
-def call(name: str, **args) -> Turn:
+def call(name: str, /, **args) -> Turn:
     return Turn(
         text="",
         tool_calls=[ToolCall(id=f"call_{next(_ids)}", name=name, input=args)],
@@ -68,7 +68,9 @@ class RuleBasedLLM:
 
     model = "rule-based-dev"
 
-    def start(self, *, system, context, history, tools) -> "_RuleSession":
+    def start(self, *, system, context, history, tools):
+        if any(t.name == "get_my_registration" for t in tools):
+            return _PeopleRuleSession(history, {t.name for t in tools})
         return _RuleSession(history[-1].text.lower() if history else "")
 
 
@@ -153,7 +155,7 @@ class _RuleSession:
             "responder sobre regras, abrir chamados, mostrar seu cadastro ou chamar a equipe."
         )
 
-    def _call(self, name: str, **args) -> Turn:
+    def _call(self, name: str, /, **args) -> Turn:
         self.last_tool = name
         return call(name, **args)
 
@@ -182,6 +184,114 @@ class _RuleSession:
             f"{data['first_name']}, no {data['condominium']} seu cadastro está em: "
             f"{units or 'nenhuma unidade'}." + suffix
         )
+
+    def add_tool_outcomes(self, outcomes: list[ToolOutcome]) -> None:
+        self.outcomes.extend(outcomes)
+
+
+_ROLE_WORDS = (
+    ("sindic", "sindico"),
+    ("síndic", "sindico"),
+    ("propriet", "proprietario"),
+    ("funcion", "funcionario"),
+    ("porteir", "funcionario"),
+    ("zelador", "funcionario"),
+    ("morador", "morador"),
+    ("inquilin", "morador"),
+)
+_YES = ("sim", "confirmo", "pode", "ok", "isso")
+
+
+def parse_registration(text: str) -> dict | None:
+    """'cadastrar Maria Souza, apto 302, bloco B, 11 98765-4321, moradora' -> tool args."""
+    head, _, rest = text.partition(" ")
+    if not head.lower().startswith("cadastr") or "," not in rest:
+        return None
+    parts = [p.strip() for p in rest.split(",") if p.strip()]
+    args = {"name": parts[0], "whatsapp": "", "role": "morador", "block": "", "unit": ""}
+    for part in parts[1:]:
+        low = part.lower()
+        digits = "".join(ch for ch in part if ch.isdigit())
+        role = next((r for w, r in _ROLE_WORDS if low.startswith(w)), None)
+        if role:
+            args["role"] = role
+        elif len(digits) >= 10:
+            args["whatsapp"] = part
+        elif low.startswith(("bloco", "torre")):
+            args["block"] = part.split(maxsplit=1)[-1]
+        else:
+            args["unit"] = low.removeprefix("apartamento").removeprefix("apto").strip(" .")
+    return args
+
+
+@dataclass
+class _PeopleRuleSession:
+    """Rule-based stand-in for the sheet-backed agent (ADR 0011): registration in two
+    steps, search, and the sender's own registration."""
+
+    history: list[ChatMessage]
+    tools: set[str]
+    outcomes: list[ToolOutcome] = field(default_factory=list)
+    last_tool: str | None = None
+
+    def next_turn(self) -> Turn:
+        if self.outcomes:
+            return say(self._answer(self.outcomes[-1]))
+        text = self.history[-1].text.strip() if self.history else ""
+        low = text.lower()
+        if "register_person" in self.tools:
+            if (args := parse_registration(text)) is not None:
+                return self._call("register_person", **args, confirmed=False)
+            if low.split()[:1] and low.split()[0].strip("!.,") in _YES:
+                earlier = [m for m in self.history[:-1] if m.role == "user"]
+                args = parse_registration(earlier[-1].text) if earlier else None
+                if args is not None:
+                    return self._call("register_person", **args, confirmed=True)
+            if low.startswith(("buscar ", "procurar ", "quem é ", "quem mora")):
+                return self._call("find_people", query=text.split(maxsplit=1)[-1][:80])
+        if any(w in low for w in ("cadastro", "unidade", "apartamento")):
+            return self._call("get_my_registration")
+        if "register_person" in self.tools:
+            return say(
+                "Olá! (modo de desenvolvimento, sem IA) Para cadastrar, escreva por exemplo: "
+                '"cadastrar Maria Souza, apto 302, 11 98765-4321, moradora". Para procurar: '
+                '"buscar Maria".'
+            )
+        return say(
+            "Olá! (modo de desenvolvimento, sem IA) Por enquanto posso mostrar seu cadastro: "
+            'escreva "meu cadastro".'
+        )
+
+    def _call(self, name: str, /, **args) -> Turn:
+        self.last_tool = name
+        return call(name, **args)
+
+    def _answer(self, outcome: ToolOutcome) -> str:
+        suffix = " (modo de desenvolvimento, sem IA)"
+        if outcome.is_error:
+            return f"Não consegui: {outcome.content}{suffix}"
+        data = json.loads(outcome.content)
+        if self.last_tool == "register_person":
+            if data.get("already_registered"):
+                return f"{data['person']['name']} já está cadastrado(a) nessa unidade.{suffix}"
+            if data.get("needs_confirmation"):
+                s = data["summary"]
+                place = " ".join(p for p in (s["block"], s["unit"]) if p) or "sem unidade"
+                return (
+                    f"Confere? {s['name']}, {s['role']}, {place}, WhatsApp {s['whatsapp']}. "
+                    f"Responda SIM para cadastrar.{suffix}"
+                )
+            return (
+                f"Cadastrado(a) ({data['id']}). A pessoa vai receber uma mensagem de "
+                f"boas-vindas.{suffix}"
+            )
+        if self.last_tool == "find_people":
+            found = [
+                f"{p['name']} ({p['role']}, {p['unit'] or '-'}, {p['id']})" for p in data["people"]
+            ]
+            return ("; ".join(found) or "Ninguém encontrado.") + suffix
+        units = ", ".join(u["place"] for u in data["units"]) or "nenhuma unidade"
+        return f"{data['name'] or 'Você'}: {data['role']}, {units}.{suffix}"
 
     def add_tool_outcomes(self, outcomes: list[ToolOutcome]) -> None:
         self.outcomes.extend(outcomes)

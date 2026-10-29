@@ -14,12 +14,14 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.agents.concierge import run_concierge
+from app.agents.zela import run_zela
 from app.core.jobs import JobPublisher
+from app.integrations.google.base import Google
 from app.integrations.whatsapp.sender import WhatsAppSender
 from app.llm.base import LLMClient
 from app.models import Condominium, Conversation, Message, Resident, WebhookEvent
 from app.models.enums import ConversationStatus, JobStatus, MessageKind, ResidentStatus
-from app.services import conversations, emergency_contacts, enrollment
+from app.services import conversations, drive, emergency_contacts, enrollment, manager_phone, people
 from app.services.enrollment import EnrollmentResult
 
 logger = logging.getLogger(__name__)
@@ -46,6 +48,21 @@ ON_CALL_ACK = (
 )
 
 
+# Sheet-backed condominiums (ADR 0010/0011).
+UNKNOWN_PERSON = (
+    "Olá! Este é o atendimento do {condo} pelo WhatsApp. Não encontrei este número no "
+    "cadastro do condomínio. Peça ao síndico para cadastrar você."
+)
+SHEETS_UNAVAILABLE = (
+    "Estou sem acesso ao cadastro do condomínio agora e não consigo atender. Tente de novo "
+    "mais tarde ou fale com o síndico."
+)
+SHEETS_UNAVAILABLE_MANAGER = (
+    "Não consigo acessar as planilhas do condomínio no Google Drive: {reason} "
+    "Confira a página de configuração do Zela."
+)
+
+
 class UnroutableEvent(Exception):
     """The event can't be processed and retrying won't help."""
 
@@ -57,6 +74,7 @@ def process_webhook_event(
     llm: LLMClient,
     sender: WhatsAppSender,
     publisher: JobPublisher | None = None,
+    google: Google | None = None,
 ) -> None:
     event = db.get(WebhookEvent, event_id)
     if event is None or event.status == JobStatus.PROCESSED:
@@ -67,7 +85,9 @@ def process_webhook_event(
         if event.event_type == "status":
             _handle_status(db, event.payload)
         elif event.event_type == "message":
-            _handle_message(db, event.payload, llm=llm, sender=sender, publisher=publisher)
+            _handle_message(
+                db, event.payload, llm=llm, sender=sender, publisher=publisher, google=google
+            )
         event.status = JobStatus.PROCESSED
         event.processed_at = datetime.now(timezone.utc)
         event.error = None
@@ -98,16 +118,21 @@ def _handle_status(db: Session, payload: dict) -> None:
 
 @contextmanager
 def _conversation_lock(db: Session, condominium_id: uuid.UUID, contact: str) -> Iterator[None]:
-    """Serialize work per contact across workers. Session-level, so it survives the
-    commits made while the conversation is processed."""
+    """Serialize work per contact across workers.
+
+    A session-level advisory lock belongs to the connection that took it, and the ORM
+    session hands its connection back to the pool at every commit. So the lock lives on a
+    dedicated connection, which also releases it if anything goes wrong."""
     key = db.scalar(select(func.hashtextextended(f"conv:{condominium_id}:{contact}", 0)))
-    db.execute(select(func.pg_advisory_lock(key)))
-    try:
-        yield
-    finally:
-        db.rollback()
-        db.execute(select(func.pg_advisory_unlock(key)))
-        db.commit()
+    bind = db.get_bind()
+    engine = getattr(bind, "engine", bind)
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as lock_conn:
+        lock_conn.execute(select(func.pg_advisory_lock(key)))
+        try:
+            yield
+        finally:
+            db.rollback()
+            lock_conn.execute(select(func.pg_advisory_unlock(key)))
 
 
 def _handle_message(
@@ -117,6 +142,7 @@ def _handle_message(
     llm: LLMClient,
     sender: WhatsAppSender,
     publisher: JobPublisher | None,
+    google: Google | None,
 ) -> None:
     message = payload["message"]
     condominium = db.scalar(
@@ -140,7 +166,7 @@ def _handle_message(
             body=text if text is not None else f"[{message.get('type', 'desconhecido')}]",
         )
         kind, reply = _decide_reply(
-            db, llm, publisher, condominium, conversation, inbound, contact, text
+            db, llm, publisher, google, condominium, conversation, inbound, contact, text
         )
         if reply:
             conversations.send_outbound(
@@ -158,12 +184,86 @@ def _decide_reply(
     db: Session,
     llm: LLMClient,
     publisher: JobPublisher | None,
+    google: Google | None,
     condominium: Condominium,
     conversation: Conversation,
     inbound: Message,
     contact: str,
     text: str | None,
 ) -> tuple[MessageKind, str | None]:
+    system = MessageKind.SYSTEM_REPLY
+    sheets = drive.uses_sheets(db, condominium.id)
+    confirmation = manager_phone.handle_inbound(
+        db, condominium, contact, text, drive_connected=sheets
+    )
+    if confirmation is not None:
+        return system, confirmation
+    if sheets:
+        return _decide_sheet_reply(
+            db, llm, publisher, google, condominium, conversation, inbound, contact, text
+        )
+    return _decide_legacy_reply(
+        db, llm, publisher, condominium, conversation, inbound, contact, text
+    )
+
+
+def _decide_sheet_reply(
+    db: Session,
+    llm: LLMClient,
+    publisher: JobPublisher | None,
+    google: Google | None,
+    condominium: Condominium,
+    conversation: Conversation,
+    inbound: Message,
+    contact: str,
+    text: str | None,
+) -> tuple[MessageKind, str | None]:
+    system = MessageKind.SYSTEM_REPLY
+    if google is None:
+        from app.integrations.google.factory import get_google
+
+        google = get_google()
+    try:
+        person = people.identify(db, google, condominium, contact)
+    except drive.RegisterUnavailable as exc:
+        is_manager = bool(
+            condominium.manager_phone_confirmed_at and condominium.manager_phone_e164 == contact
+        )
+        if is_manager:
+            return system, SHEETS_UNAVAILABLE_MANAGER.format(reason=exc.message)
+        return system, SHEETS_UNAVAILABLE
+    if person is None:
+        if emergency_contacts.is_emergency_contact(db, condominium.id, contact):
+            return system, ON_CALL_ACK.format(condo=condominium.name)
+        # Answered without the model: unknown numbers cost nothing and learn nothing.
+        return system, UNKNOWN_PERSON.format(condo=condominium.name)
+    if text is None:
+        return system, TEXT_ONLY
+    run = run_zela(
+        db,
+        llm,
+        condominium=condominium,
+        conversation=conversation,
+        person=person,
+        trigger=inbound,
+        google=google,
+        publisher=publisher,
+    )
+    return MessageKind.AI_REPLY, run.reply_text
+
+
+def _decide_legacy_reply(
+    db: Session,
+    llm: LLMClient,
+    publisher: JobPublisher | None,
+    condominium: Condominium,
+    conversation: Conversation,
+    inbound: Message,
+    contact: str,
+    text: str | None,
+) -> tuple[MessageKind, str | None]:
+    """Milestone 2–3 flow (Postgres residents, enrollment codes, dashboard escalation),
+    for condominiums that haven't connected Google Drive."""
     system = MessageKind.SYSTEM_REPLY
     if conversation.status == ConversationStatus.ESCALATED:
         return system, None  # staff own the conversation; they see it in the dashboard

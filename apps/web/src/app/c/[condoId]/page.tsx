@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useCondo } from "@/components/condo-context";
 import { DriveCard } from "@/components/drive-card";
 import { EmergencyContactsCard } from "@/components/emergency-contacts-card";
+import { ManagerPhoneCard } from "@/components/manager-phone-card";
 import { PageHeader } from "@/components/page-header";
 import { WhatsAppCard } from "@/components/whatsapp-card";
 
@@ -48,7 +49,10 @@ export default function SetupPage() {
           <Step number={2} title="Planilhas no Google Drive">
             <DriveCard condoId={condoId} />
           </Step>
-          <Step number={3} title="Plantão de emergência">
+          <Step number={3} title="Seu WhatsApp de síndico">
+            <ManagerPhoneCard condoId={condoId} />
+          </Step>
+          <Step number={4} title="Plantão de emergência">
             <EmergencyContactsCard condoId={condoId} />
           </Step>
         </div>

@@ -10,7 +10,7 @@ from app.models.enums import ConversationStatus, DeliveryStatus, JobStatus, Mess
 from app.services import conversations
 from app.workers import inbound as msgs
 from app.workers.inbound import process_webhook_event
-from tests.whatsapp import deliver, make_resident, outbound
+from tests.whatsapp import RESIDENT_PHONE, deliver, make_resident, outbound
 
 
 @pytest.fixture
@@ -126,3 +126,20 @@ def test_messages_from_one_contact_share_a_conversation(db, world, sender):
     assert db.scalar(select(func.count()).select_from(Conversation)) == 1
     # The second run sees the first exchange as history.
     assert [m.text for m in llm.sessions[1].history] == ["oi", "1", "tudo bem?"]
+
+
+def test_the_contact_lock_is_released_when_processing_fails(db, world, engine, monkeypatch):
+    """The lock lives on its own connection, so a crash can't leave it held on a pooled
+    one (which would block every later message from that contact)."""
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("tool crashed")
+
+    monkeypatch.setattr(msgs, "_decide_reply", boom)
+    sender = RecordingSender()
+    with pytest.raises(RuntimeError):
+        deliver(db, world.condo_a, "oi", sender=sender)
+    key = db.scalar(select(func.hashtextextended(f"conv:{world.condo_a.id}:{RESIDENT_PHONE}", 0)))
+    with engine.connect() as other:
+        assert other.scalar(select(func.pg_try_advisory_lock(key))) is True
+        other.scalar(select(func.pg_advisory_unlock(key)))

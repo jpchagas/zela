@@ -101,6 +101,12 @@ def deliver(db: Session, notification_id: uuid.UUID, sender: WhatsAppSender) -> 
 
 def _guard_holds(db: Session, notification: NotificationEvent) -> bool:
     guard = notification.data.get("guard") or {}
+    pending_phone = guard.get("manager_phone_pending")
+    if pending_phone is not None:
+        condo = db.get(Condominium, notification.condominium_id)
+        return (
+            condo.manager_phone_e164 == pending_phone and condo.manager_phone_confirmed_at is None
+        )
     expected = guard.get("ticket_status")
     if expected is None:
         return True

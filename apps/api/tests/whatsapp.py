@@ -57,6 +57,7 @@ def deliver(
     llm: LLMClient | None = None,
     from_e164: str = RESIDENT_PHONE,
     publisher=None,
+    google=None,
     **kwargs,
 ) -> list[uuid.UUID]:
     """Record and process an inbound message like the webhook + worker would."""
@@ -69,6 +70,7 @@ def deliver(
             llm=llm or ScriptedLLM(),
             sender=sender,
             publisher=publisher or FakePublisher(),
+            google=google,
         )
     return ids
 

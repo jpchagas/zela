@@ -3,6 +3,8 @@ resident (PDD §6.1). Capabilities grow by adding tools to the registry."""
 
 import json
 import logging
+import uuid
+from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -94,8 +96,48 @@ def run_concierge(
     registry: ToolRegistry | None = None,
     publisher: JobPublisher | None = None,
 ) -> AgentRun:
-    """Run the agent for one inbound message and return the stored run, whose
-    `reply_text` is what to send. Idempotent per trigger message."""
+    """The Milestone 2–3 concierge for an enrolled resident (Postgres records)."""
+    return run_agent(
+        db,
+        llm,
+        agent="concierge",
+        condominium=condominium,
+        conversation=conversation,
+        trigger=trigger,
+        system=SYSTEM_PROMPT,
+        context=render_context(condominium, resident, datetime.now(timezone.utc)),
+        registry=registry or build_resident_registry(),
+        make_context=lambda run_id: ToolContext(
+            condominium_id=condominium.id,
+            resident_id=resident.id,
+            conversation_id=conversation.id,
+            agent_run_id=run_id,
+            idempotency_key=f"msg:{trigger.id}",
+            publisher=publisher or get_job_publisher(),
+        ),
+    )
+
+
+def run_agent(
+    db: Session,
+    llm: LLMClient,
+    *,
+    agent: str,
+    condominium: Condominium,
+    conversation: Conversation,
+    trigger: Message,
+    system: str,
+    context: str,
+    registry: ToolRegistry,
+    make_context: Callable[[uuid.UUID], ToolContext],
+    escalate_on_give_up: bool = True,
+    give_up_reply: str = GAVE_UP_REPLY,
+) -> AgentRun:
+    """Run an agent for one inbound message and return the stored run, whose
+    `reply_text` is what to send. Idempotent per trigger message.
+
+    `escalate_on_give_up` hands the conversation to staff when the model produces no
+    answer (dashboard flow). Without it, the sender gets `give_up_reply` instead."""
     existing = db.scalar(select(AgentRun).where(AgentRun.trigger_message_id == trigger.id))
     if existing is not None and existing.status != AgentRunStatus.RUNNING:
         return existing
@@ -104,7 +146,7 @@ def run_concierge(
         condominium_id=condominium.id,
         conversation_id=conversation.id,
         trigger_message_id=trigger.id,
-        agent="concierge",
+        agent=agent,
         model=llm.model,
         status=AgentRunStatus.RUNNING,
         tool_calls=[],
@@ -119,15 +161,7 @@ def run_concierge(
                 select(AgentRun).where(AgentRun.trigger_message_id == trigger.id)
             ).one()
 
-    registry = registry or build_resident_registry()
-    ctx = ToolContext(
-        condominium_id=condominium.id,
-        resident_id=resident.id,
-        conversation_id=conversation.id,
-        agent_run_id=run.id,
-        idempotency_key=f"msg:{trigger.id}",
-        publisher=publisher or get_job_publisher(),
-    )
+    ctx = make_context(run.id)
     usage = Usage()
     calls: list[dict] = []
     reply: str | None = None
@@ -136,8 +170,8 @@ def run_concierge(
 
     try:
         session = llm.start(
-            system=SYSTEM_PROMPT,
-            context=render_context(condominium, resident, datetime.now(timezone.utc)),
+            system=system,
+            context=context,
             history=load_history(db, conversation),
             tools=registry.specs(),
         )
@@ -163,7 +197,9 @@ def run_concierge(
         logger.warning("concierge LLM failure", extra={"agent_run_id": str(run.id)})
         status, error, reply = AgentRunStatus.FAILED, str(exc), TECHNICAL_ERROR_REPLY
 
-    if reply is None:
+    if reply is None and not escalate_on_give_up:
+        reply, status = give_up_reply, AgentRunStatus.FAILED
+    elif reply is None:
         # The model never produced an answer: hand over rather than leave the resident hanging.
         reply = GAVE_UP_REPLY
         status = AgentRunStatus.ESCALATED
@@ -202,6 +238,7 @@ def _execute(
         except ValidationError as exc:
             raise ToolError(f"Invalid arguments: {exc.errors(include_url=False)}") from exc
         result = tool.run(db, ctx, args)
+        entry.update(result.log)
         entry.update(ok=result.ok, error=result.error)
         content = (
             json.dumps(result.data, ensure_ascii=False, sort_keys=True)

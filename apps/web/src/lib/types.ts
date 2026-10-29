@@ -35,6 +35,9 @@ export interface Condominium {
   contact_email: string | null;
   contact_phone: string | null;
   whatsapp_phone_number_id: string | null;
+  manager_phone_e164: string | null;
+  manager_phone_requested_at: string | null;
+  manager_phone_confirmed_at: string | null;
   created_at: string;
 }
 

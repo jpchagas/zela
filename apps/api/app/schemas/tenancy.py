@@ -37,11 +37,19 @@ class CondominiumOut(ORMModel, CondominiumBase):
     id: uuid.UUID
     organization_id: uuid.UUID
     whatsapp_phone_number_id: str | None
+    manager_phone_e164: str | None = None
+    manager_phone_requested_at: datetime | None = None
+    manager_phone_confirmed_at: datetime | None = None
     created_at: datetime
 
 
 class WhatsAppConfig(BaseModel):
     whatsapp_phone_number_id: str | None = Field(default=None, pattern=r"^\d{6,30}$")
+
+
+class ManagerPhoneConfig(BaseModel):
+    # Any common Brazilian format; normalized to E.164. Null removes it.
+    number: str | None = Field(default=None, max_length=30)
 
 
 class CondominiumAccess(BaseModel):

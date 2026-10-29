@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import ForeignKey, ForeignKeyConstraint, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, ForeignKeyConstraint, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, IdMixin, TimestampMixin
@@ -33,6 +34,11 @@ class Condominium(IdMixin, TimestampMixin, Base):
     # Meta's phone_number_id for the condominium's WhatsApp sender. Routes inbound
     # webhooks to a tenant. Access tokens live in Secret Manager, not here.
     whatsapp_phone_number_id: Mapped[str | None] = mapped_column(String(64), unique=True)
+    # The manager's own WhatsApp (ADR 0011). It may register people only once confirmed:
+    # Zela messages the number and the manager answers SIM from it.
+    manager_phone_e164: Mapped[str | None] = mapped_column(String(20))
+    manager_phone_requested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    manager_phone_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Building(IdMixin, TimestampMixin, Base):

@@ -52,4 +52,28 @@ EMERGENCY_ALERT = Template(
     params=("condominium", "summary", "location", "number", "time"),
 )
 
-TEMPLATES = {t.name: t for t in (TICKET_UPDATE, EMERGENCY_ALERT)}
+MANAGER_CONFIRMATION = Template(
+    name="zela_manager_confirmation",
+    language="pt_BR",
+    category="UTILITY",
+    body=(
+        "Olá! Este número foi informado como WhatsApp do síndico do {{1}} no Zela. Se for "
+        "você, responda SIM. Se não reconhece este pedido, ignore esta mensagem."
+    ),
+    params=("condominium",),
+)
+
+PERSON_WELCOME = Template(
+    name="zela_person_welcome",
+    language="pt_BR",
+    category="UTILITY",
+    body=(
+        "Olá, {{1}}! Você foi cadastrado(a) no Zela, o atendimento do {{2}} pelo WhatsApp. "
+        "É só mandar mensagem neste número quando precisar."
+    ),
+    params=("first_name", "condominium"),
+)
+
+TEMPLATES = {
+    t.name: t for t in (TICKET_UPDATE, EMERGENCY_ALERT, MANAGER_CONFIRMATION, PERSON_WELCOME)
+}

@@ -364,9 +364,22 @@ def _ensure_register(
         raise SheetLayoutError(MSG_TAB_DELETED.format(title=spec.title)) from exc
 
 
-def open_table(db: Session, google: Google, condominium_id: uuid.UUID, kind: RegisterKind) -> Table:
-    """Loads one register under the condominium's sheet lock. The caller commits (which
-    releases the lock) after its last write."""
+def uses_sheets(db: Session, condominium_id: uuid.UUID) -> bool:
+    """Whether the condominium has moved to sheet-backed records (ADR 0010)."""
+    return _connection(db, condominium_id) is not None
+
+
+def open_table(
+    db: Session,
+    google: Google,
+    condominium_id: uuid.UUID,
+    kind: RegisterKind,
+    *,
+    lock: bool = True,
+) -> Table:
+    """Loads one register. With `lock` (the default, required before writing) it holds the
+    condominium's sheet lock, which the caller's next commit releases. Read-only callers
+    pass lock=False."""
     connection = _connection(db, condominium_id)
     register = _registers(db, condominium_id).get(kind)
     if connection is None:
@@ -375,7 +388,8 @@ def open_table(db: Session, google: Google, condominium_id: uuid.UUID, kind: Reg
         raise RegisterUnavailable(MSG_REAUTH)
     if register is None or register.spreadsheet_id is None or register.sheet_id is None:
         raise RegisterUnavailable("The register has not been created yet")
-    lock_sheets(db, condominium_id)
+    if lock:
+        lock_sheets(db, condominium_id)
     try:
         workspace = _workspace(google, connection)
         return Table(workspace, register.spreadsheet_id, register.sheet_id, REGISTERS[kind]).load()

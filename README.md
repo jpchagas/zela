@@ -40,9 +40,27 @@ With `GOOGLE_MODE=fake` (the default in `.env.example`), it works without any Go
 account, against an in-memory Drive that's lost on restart. To use your real Drive, follow
 [docs/google-setup.md](docs/google-setup.md).
 
-### Try the WhatsApp flow locally
+### Try people over WhatsApp
 
-This still runs the Milestone 1–3 flow, which ADR 0010 is replacing phase by phase.
+With Drive connected (fake mode is fine), set your number under **Seu WhatsApp de síndico**,
+then use `POST /dev/whatsapp/inbound` to play the manager and then the new person. The
+rule-based stand-in (`LLM_PROVIDER=scripted`) understands this exact phrasing:
+
+```bash
+say() { curl -s localhost:8000/dev/whatsapp/inbound -H 'Content-Type: application/json' \
+  -d "{\"condominium_id\":\"<id>\",\"from_e164\":\"$1\",\"text\":\"$2\"}"; }
+say +5511955550000 "sim"     # confirms the manager number
+say +5511955550000 "cadastrar Juliana Prado, apto 204, bloco B, 11 91234-5678, moradora"
+say +5511955550000 "sim"     # confirms the summary; the row appears in Pessoas
+say +5511912345678 "meu cadastro"
+```
+
+With Claude (`LLM_PROVIDER=anthropic`), write naturally.
+
+### Try the legacy WhatsApp flow locally
+
+Condominiums without Drive still run the Milestone 1–3 flow, which ADR 0010 is replacing
+phase by phase.
 
 With `ENV=development`, `POST /dev/whatsapp/inbound` feeds a message through the real
 pipeline (ledger → worker → enrollment/concierge) without Meta and returns the replies.
@@ -83,8 +101,12 @@ make eval        # opt-in AI evals against the real model (costs money)
 - Phase 1, done: Google Drive connection; the condominium's registers (Pessoas,
   Ocorrências, Visitantes, Encomendas) are found or created in the manager's Drive and
   read by column name, tolerating hand edits; the website is cut down to setup.
-- Next: Phase 2, people registered and recognized through WhatsApp. Then occurrences,
-  deliveries, visitors, and optionally questions about the condominium's rules.
+- Phase 2, done: the manager's WhatsApp is set on the setup page and confirmed by
+  answering SIM; senders are recognized from the Pessoas sheet; the manager registers,
+  finds, corrects and deactivates people by WhatsApp, always confirming a summary first
+  (ADR 0011). Registered people get a welcome message.
+- Next: Phase 3, occurrences (complaints and maintenance). Then deliveries, visitors, and
+  optionally questions about the condominium's rules.
 
 The Milestone 1–3 build below is still in the code and is being replaced:
 

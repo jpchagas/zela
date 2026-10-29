@@ -26,6 +26,7 @@ def run_inbound_job(payload: dict[str, str]) -> None:
             uuid.UUID(payload["webhook_event_id"]),
             llm=get_llm_client(),
             sender=get_whatsapp_sender(),
+            google=get_google(),
         )
 
 

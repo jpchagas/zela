@@ -123,6 +123,16 @@ class Table:
         row.values.update(changes)
         return row
 
+    def assign_id(self, row: Row, zela_id: str) -> Row:
+        """Gives a hand-added row (no Zela ID yet) an ID, so Zela can update it later."""
+        if row.zela_id:
+            return row
+        self._ws.update_cells(
+            self._spreadsheet_id, self._sheet_id, [Cell(row.number, self._col[ID.key], zela_id)]
+        )
+        row.values[ID.key] = zela_id
+        return row
+
     def _checked(self, record: dict[str, object]) -> dict[str, object]:
         unknown = set(record) - set(self._col)
         if unknown:

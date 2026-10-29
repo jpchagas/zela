@@ -1,8 +1,12 @@
 # WhatsApp message templates
 
 WhatsApp only allows free-form messages within 24 hours of the contact's last message.
-Outside that window, Zela sends **approved templates**. Zela uses them for ticket updates
-to residents who haven't written recently, and for emergency alerts to on-call contacts.
+Outside that window, Zela sends **approved templates**. Zela uses them for:
+
+- ticket updates to residents who haven't written recently;
+- emergency alerts to on-call contacts;
+- the manager's number confirmation;
+- welcoming people the manager registers.
 
 The templates are defined in `apps/api/app/integrations/whatsapp/templates.py`. Until they
 are approved, locally they are only recorded (`WHATSAPP_SENDER=log`), and in production a
@@ -31,6 +35,22 @@ Samples: `12` · `Portão da garagem não abre` · `a equipe começou a cuidar d
 
 Samples: `Residencial Aurora` · `Cheiro de gás no 3º andar` · `Corredor do 3º andar` ·
 `42` · `21:15`
+
+### `zela_manager_confirmation` (Utility)
+
+```
+Olá! Este número foi informado como WhatsApp do síndico do {{1}} no Zela. Se for você, responda SIM. Se não reconhece este pedido, ignore esta mensagem.
+```
+
+Sample: `Residencial Aurora`
+
+### `zela_person_welcome` (Utility)
+
+```
+Olá, {{1}}! Você foi cadastrado(a) no Zela, o atendimento do {{2}} pelo WhatsApp. É só mandar mensagem neste número quando precisar.
+```
+
+Samples: `Maria` · `Residencial Aurora`
 
 ## Changing a template
 

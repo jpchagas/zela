@@ -10,16 +10,25 @@ Rules every tool follows:
 - A tool reports only what was committed. The agent must not claim success otherwise.
 """
 
+import hashlib
+import json
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Generic, TypeVar
+from datetime import datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Any, ClassVar, Generic, TypeVar
 
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.jobs import JobPublisher
 from app.llm.base import ToolSpec
+from app.models import AgentRun
+
+if TYPE_CHECKING:
+    from app.integrations.google.base import Google
+    from app.services.people import Person
 
 ArgsT = TypeVar("ArgsT", bound=BaseModel)
 
@@ -27,13 +36,17 @@ ArgsT = TypeVar("ArgsT", bound=BaseModel)
 @dataclass(frozen=True)
 class ToolContext:
     condominium_id: uuid.UUID
-    resident_id: uuid.UUID
     conversation_id: uuid.UUID
     agent_run_id: uuid.UUID
     # Derived from the triggering webhook event, so a retried run can't act twice.
     idempotency_key: str
     # For tools whose effects continue in the background (e.g. emergency alerts).
     publisher: JobPublisher
+    # Legacy (Milestone 2–3) concierge: the enrolled resident in Postgres.
+    resident_id: uuid.UUID | None = None
+    # Sheet-backed condominiums (ADR 0010/0011): the sender as found in Pessoas.
+    person: "Person | None" = None
+    google: "Google | None" = None
 
 
 class ToolError(Exception):
@@ -46,6 +59,36 @@ class ToolResult:
     data: dict[str, Any] = field(default_factory=dict)
     # Safe to show the model; never includes other residents' data.
     error: str | None = None
+    # Extra fields for the agent run's tool-call log (no personal data values).
+    log: dict[str, Any] = field(default_factory=dict)
+
+
+PREVIEW_WINDOW = timedelta(minutes=30)
+
+
+def preview_key(args: BaseModel | dict[str, Any]) -> str:
+    """Fingerprint of the (normalized) arguments a confirmation summary was shown for."""
+    data = args.model_dump(exclude={"confirmed"}) if isinstance(args, BaseModel) else args
+    return hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+
+def was_previewed(db: Session, ctx: ToolContext, tool_name: str, key: str) -> bool:
+    """True if an earlier run in this conversation showed the summary for exactly these
+    arguments. The confirming message must come after the summary, so a single message
+    can never both request and confirm a consequential action."""
+    since = datetime.now(timezone.utc) - PREVIEW_WINDOW
+    runs = db.scalars(
+        select(AgentRun.tool_calls).where(
+            AgentRun.conversation_id == ctx.conversation_id,
+            AgentRun.id != ctx.agent_run_id,
+            AgentRun.started_at >= since,
+        )
+    ).all()
+    return any(
+        entry.get("tool") == tool_name and entry.get("ok") and entry.get("preview_key") == key
+        for calls in runs
+        for entry in calls
+    )
 
 
 class Tool(ABC, Generic[ArgsT]):
